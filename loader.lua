@@ -28,8 +28,8 @@ if _G.ANTIENVLOGBYNEVERWON1 and getgenv().ANTIENVLOGBYNEVERWON2 and _G.ANTIENVLO
 end
 --// ========================================
 local HUB_NAME   = "Orion Hub"
-local CONFIG_URL = "https://orion-hub.vercel.app/Configs/Head.json"
-local CONFIG_URL_FALLBACK = "https://orion-hub.vercel.app/Configs/Head.lua"
+local CONFIG_URL = "https://raw.githubusercontent.com/alphacellsmart/Orion/main/Config/Head.lua"
+local CONFIG_URL_FALLBACK = "https://raw.githubusercontent.com/alphacellsmart/Orion/main/Config/Head.lua"
 --// ========================================
 local INTERNAL_CONFIG = {
     -- Link de compra da Key Premium (R$10 Brasil / $10 exterior)
@@ -185,7 +185,7 @@ local function hasSavedKey()
     return isValidKey(saved.key) -- revalida no Head.json a cada execucao
 end
 
-local UNIVERSAL_URL = "https://orion-hub.vercel.app/Games/Universal/loader.lua"
+local UNIVERSAL_URL = "https://raw.githubusercontent.com/alphacellsmart/Orion/main/Games/Universal/Loader.lua"
 --// ========================================
 
 local function executarScript()
