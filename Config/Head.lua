@@ -1,7 +1,14 @@
 {
     "KernelEnabled": false,
-    "PremiumKey": "VIP-VQTR-7M-3-K-X9B5L",
-    "OpenIcon": "rbxassetid://106423297301247",
+    "PremiumKey": "KEY-ALFA-7X-2-B-Z9M4Q",
+    "Keys": [
+        "KEY-ALFA-7X-2-B-Z9M4Q",
+        "KEY-BETA-3Y-5-C-X7K2V",
+        "KEY-GAMA-9Z-8-D-L3P5W",
+        "KEY-DELTA-4W-1-E-M8R7T",
+        "KEY-OMEGA-6V-3-F-N2S9Y"
+    ],
+    "OpenIcon": "rbxassetid://7733960981",
     "ThemeSelect": "Carbon",
     "SoundId": "rbxassetid://125061692545569",
     "SoundVolume": 1,
