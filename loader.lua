@@ -32,10 +32,15 @@ local CONFIG_URL = "https://raw.githubusercontent.com/alphacellsmart/Orion/main/
 local CONFIG_URL_FALLBACK = "https://raw.githubusercontent.com/alphacellsmart/Orion/main/Config/Head.lua"
 --// ========================================
 local INTERNAL_CONFIG = {
-    -- Link de compra da Key Premium (R$10 Brasil / $10 exterior)
-    BuyLink      = "https://orion-studios.vercel.app/Comprar/Scripts/Games/Universal#oferta",
-    -- Link encurtado para obter senha gratuita (passe pelo encurtador)
-    ShortLink    = "https://orion-studios.vercel.app/GetKey", -- substitua pelo seu encurtador real
+    ShortLinks = {
+        "https://snet.blog/w8otovu",
+        "https://snet.blog/qu35nv1",
+        "https://snet.blog/9v32nal",
+        "https://snet.blog/jlnznuh",
+        "https://snet.blog/akg7v3w",
+    },
+    DiscordInvite = "https://discord.gg/1552416753491906650",
+    DiscordId     = "1552416753491906650",
 }
 --// ========================================
 
@@ -95,7 +100,7 @@ end
 
 local externalConfig = fetchJSON(CONFIG_URL, CONFIG_URL_FALLBACK)
 
-local CFG_ICON       = (externalConfig and externalConfig["OpenIcon"])    or "rbxassetid://106423297301247"
+local CFG_ICON       = (externalConfig and externalConfig["OpenIcon"])    or "rbxassetid://7733960981"
 local CFG_THEME      = (externalConfig and externalConfig["ThemeSelect"]) or "darker"
 local CFG_SND        = (externalConfig and externalConfig["SoundId"])     or ""
 local CFG_VOL        = (externalConfig and externalConfig["SoundVolume"]) or 1
@@ -251,14 +256,14 @@ end)
 
 local Window = OrionLib:Window({
     Title       = HUB_NAME .. (gameName ~= "" and (" | " .. gameName) or "") .. " | " .. getExecutorName(),
-    Color       = Color3.fromRGB(16, 185, 129), -- verde elegante
+    Color       = Color3.fromRGB(16, 185, 129),
     Version     = 1,
     ThemePreset = CFG_THEME,
 })
 
 local Float = OrionLib:FloatBtn({
     Icon       = CFG_ICON,
-    Color      = Color3.fromRGB(16, 185, 129), -- verde elegante
+    Color      = Color3.fromRGB(16, 185, 129),
     ColorDark  = Color3.fromRGB(10, 40, 30),
     Size       = 46,
     MainHolder = Window._holder,
@@ -325,20 +330,24 @@ task.delay(0.5, function()
     )
 end)
 
-local function copyBuyLink()
-    setclipboard(INTERNAL_CONFIG.BuyLink)
+local _shortIdx = 0
+local function copyShortLink()
+    local links = INTERNAL_CONFIG.ShortLinks or {}
+    if #links == 0 then return end
+    _shortIdx = (_shortIdx % #links) + 1
+    setclipboard(links[_shortIdx])
     Notify(
-        T("Link de compra copiado! Cole no navegador.", "Purchase link copied! Paste it in your browser."),
+        T("Link do encurtador copiado! Cole no navegador.", "Shortener link copied! Paste in browser."),
         5,
         Color3.fromRGB(16, 185, 129)
     )
 end
 
-local function copyShortLink()
-    setclipboard(INTERNAL_CONFIG.ShortLink)
+local function copyDiscord()
+    setclipboard(INTERNAL_CONFIG.DiscordInvite or "")
     Notify(
-        T("Link do encurtador copiado! Passe pelo link para obter a senha.", "Shortener link copied! Go through the link to get the password."),
-        5,
+        T("Link do Discord copiado!", "Discord link copied!"),
+        4,
         Color3.fromRGB(16, 185, 129)
     )
 end
@@ -354,25 +363,25 @@ local SecEntrada = TabVerificar:AddSection(
 SecEntrada:AddParagraph({
     Title   = T("Como obter a senha", "How to get the password"),
     Content = T(
-        "1) Passe pelo link encurtado (gratuito)\n2) Ou compre a Key Premium (permanente)\n\nPreço da Key Premium:\n• Brasil: R$ 10,00\n• Exterior: US$ 10,00",
-        "1) Go through the shortened link (free)\n2) Or buy the Premium Key (permanent)\n\nPremium Key price:\n• Brazil: R$ 10.00\n• Outside Brazil: US$ 10.00"
+        "1) Clique no botão e passe pelo encurtador\n2) Pegue a key que aparecer\n3) Cole a key no campo e confirme\n\nPrecisa de ajuda? Entre no Discord!",
+        "1) Click the button and go through the shortener\n2) Get the key that appears\n3) Paste the key and confirm\n\nNeed help? Join the Discord!"
     ),
 })
 
 SecEntrada:AddButton({
-    Title    = T("Obter senha via Encurtador (Grátis)", "Get password via Shortener (Free)"),
+    Title    = T("Obter Key via Encurtador", "Get Key via Shortener"),
     Callback = copyShortLink,
 })
 
 SecEntrada:AddButton({
-    Title    = T("Comprar Key Premium (R$10 / $10)", "Buy Premium Key (R$10 / $10)"),
-    Callback = copyBuyLink,
+    Title    = T("Entrar no Discord", "Join Discord"),
+    Callback = copyDiscord,
 })
 
 local inputKey = ""
 SecEntrada:AddInput({
     Title    = T("Digite a senha:", "Enter the password:"),
-    Content  = T("Senha de Acesso / Premium Key", "Access Password / Premium Key"),
+    Content  = T("Senha de Acesso / Key", "Access Password / Key"),
     Default  = "",
     Callback = function(value) inputKey = value end,
 })
@@ -419,24 +428,29 @@ SecEntrada:AddButton({
 })
 
 --// ========================================
--- Aba Premium
+-- Aba Premium / Discord
 --// ========================================
 local SecPremium = TabPremium:AddSection(
-    T("Key Premium — Acesso PERMANENTE", "Premium Key — PERMANENT Access"),
+    T("Acesso e Suporte", "Access and Support"),
     true
 )
 
 SecPremium:AddParagraph({
-    Title   = T("Benefícios da Key Premium", "Premium Key Benefits"),
+    Title   = T("Como entrar", "How to get in"),
     Content = T(
-        "Preço: R$ 10,00 (Brasil)  |  US$ 10,00 (Exterior)\n\n- Acesso PERMANENTE e ILIMITADO\n- Sem precisar de links ou encurtadores\n- Senha que nunca expira\n- Suporte VIP no Discord\n- Acesso antecipado aos novos recursos",
-        "Price: R$ 10.00 (Brazil)  |  US$ 10.00 (Outside)\n\n- PERMANENT and UNLIMITED access\n- No need for links or shorteners\n- Password that never expires\n- VIP Discord support\n- Early access to new features"
+        "- Passe pelo encurtador para obter sua key\n- Keys válidas e atualizadas\n- Suporte no Discord",
+        "- Go through the shortener to get your key\n- Valid and updated keys\n- Support on Discord"
     ),
 })
 
 SecPremium:AddButton({
-    Title    = T("Copiar link de compra (R$10 / $10)", "Copy purchase link (R$10 / $10)"),
-    Callback = copyBuyLink,
+    Title    = T("Copiar link do Encurtador", "Copy Shortener link"),
+    Callback = copyShortLink,
+})
+
+SecPremium:AddButton({
+    Title    = T("Entrar no Discord", "Join Discord"),
+    Callback = copyDiscord,
 })
 
 -- =========================================
@@ -449,28 +463,6 @@ _G.LoadConfigElements = LoadConfigElements or nil
 
 -- =========================================
 
-local URL = "https://win-ui-online.vercel.app/Tab/Config.lua"
-
-local success, result = pcall(function()
-    return game:HttpGet(URL)
-end)
-
-if not success or not result or result == "" then
-    warn("Erro ao fazer request:", result)
-    return
-end
-
-local func, err = loadstring(result)
-
-if not func then
-    warn("Erro ao compilar o TabConfig:", err)
-    return
-end
-
-local ok, execErr = pcall(func)
-
-if not ok then
-    warn("Erro ao executar o TabConfig:", execErr)
-end
+-- TabConfig externo desativado (sem créditos / desenvolvedor)
 
 -- =========================================
