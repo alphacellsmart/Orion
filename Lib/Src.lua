@@ -39,9 +39,9 @@ if not _G.__OrionPath then
     end
 end
 --[[
-  ORION STUDIOS | WINUI REPLACEMENT
+  ORION HUB | WINUI REPLACEMENT
   Nueva interfaz completa: ventana compacta con header, sidebar, páginas y cards
-  en negro/grafito com detalhes em verde elegante (accent emerald).
+  en negro/grafito/prata, inspirada en el panel Orion Hub.
   Compatible con el loader: Window, AddTab, AddSection, AddButton, AddToggle,
   FloatBtn, RegisterFloat, MakeNotify y DestroyGui.
 ]]
@@ -66,10 +66,9 @@ local T = {
     darkText = Color3.fromRGB(20, 20, 23),
     silver2 = Color3.fromRGB(177, 177, 188),
     error = Color3.fromRGB(225, 82, 82),
-    -- Verde elegante (accent)
-    accent = Color3.fromRGB(16, 185, 129),       -- emerald
-    accentSoft = Color3.fromRGB(52, 211, 153),   -- soft emerald
-    accentDim = Color3.fromRGB(6, 95, 70),       -- deep emerald
+    accent = Color3.fromRGB(16, 185, 129),
+    accentSoft = Color3.fromRGB(52, 211, 153),
+    accentDim = Color3.fromRGB(6, 95, 70),
 }
 
 local Icons = {}
@@ -227,7 +226,42 @@ local function draggable(handle, target)
     handle.InputBegan:Connect(function(io)
         if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then
             held, start, origin = true, io.Position, target.Position
-            io.Changed:Connect(function() if io.UserInputState == Enum.UserInputState.End then held = false end end)
+            io.Changed:Connect(function()
+                if io.UserInputState == Enum.UserInputState.End then
+                    held = false
+                    if target.Name == "MainHolder" then
+                        task.delay(.1, function()
+                            pcall(function()
+                                local fl = _G.__OrionFloatFrame
+                                if not (fl and fl.Parent and target.Parent) then return end
+                                local inset = game:GetService("GuiService"):GetGuiInset()
+                                local ts, fs, fp = target.AbsoluteSize, fl.AbsoluteSize, fl.AbsolutePosition
+                                for _, dy in ipairs({inset.Y, 0}) do
+                                    local tp = target.AbsolutePosition + Vector2.new(0, dy)
+                                    if fp.X < tp.X + ts.X and fp.X + fs.X > tp.X and fp.Y < tp.Y + ts.Y and fp.Y + fs.Y > tp.Y then
+                                        game:GetService("TweenService"):Create(target, TweenInfo.new(.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(.5, 0, .5, 0)}):Play()
+                                        return
+                                    end
+                                end
+                            end)
+                        end)
+                    end
+                    task.defer(function()
+                        pcall(function()
+                            local sg = target:FindFirstAncestorOfClass("ScreenGui")
+                            if not sg or target.Name == "FloatButton" then return end
+                            local vp, ap, sz, m = sg.AbsoluteSize, target.AbsolutePosition, target.AbsoluteSize, 6
+                            local cx = math.clamp(ap.X, m, math.max(m, vp.X - sz.X - m))
+                            local cy = math.clamp(ap.Y, m, math.max(m, vp.Y - sz.Y - m))
+                            if math.abs(cx - ap.X) > .5 or math.abs(cy - ap.Y) > .5 then
+                                local p = target.Position
+                                game:GetService("TweenService"):Create(target, TweenInfo.new(.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+                                    {Position = UDim2.new(p.X.Scale, p.X.Offset + (cx - ap.X), p.Y.Scale, p.Y.Offset + (cy - ap.Y))}):Play()
+                            end
+                        end)
+                    end)
+                end
+            end)
         end
     end)
     handle.InputChanged:Connect(function(io)
@@ -332,6 +366,59 @@ local function hookFallback()
     end)
 end
 
+-- efeito de clique: camada escura por cima do botao + contorno branco (ou verde se o botao esta verde) que segue o estado em tempo real.
+-- Nao mexe na cor real do botao nem na espessura do contorno original, entao nao tem como "ficar preto" ou grosso.
+local function pressFx(btn)
+    local GREEN_C = Color3.fromRGB(46, 204, 113)
+    local ov = Instance.new("Frame")
+    ov.Name = "PressFx"; ov.Size = UDim2.new(1, 0, 1, 0); ov.BackgroundColor3 = Color3.new(0, 0, 0)
+    ov.BackgroundTransparency = 1; ov.BorderSizePixel = 0; ov.Active = false; ov.ZIndex = btn.ZIndex; ov.Parent = btn
+    local cr = btn:FindFirstChildOfClass("UICorner")
+    local oc = Instance.new("UICorner"); oc.CornerRadius = cr and cr.CornerRadius or UDim.new(0, 8); oc.Parent = ov
+    local ovs = Instance.new("UIStroke")
+    ovs.Thickness = 1; ovs.Transparency = 1; ovs.Color = Color3.new(1, 1, 1)
+    ovs.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; ovs.Parent = ov
+    local down, running, tw1, tw2 = false, false, nil, nil
+    local function stateColor()
+        local c = btn.BackgroundColor3
+        if c.G > c.R + .2 and c.G > c.B + .2 then return GREEN_C end
+        return Color3.new(1, 1, 1)
+    end
+    local function loop()
+        if running then return end
+        running = true
+        task.spawn(function()
+            while btn.Parent and (down or ovs.Transparency < .99) do
+                ovs.Color = stateColor(); task.wait()
+            end
+            running = false
+        end)
+    end
+    local function press()
+        if down then return end
+        down = true
+        if tw1 then tw1:Cancel() end; if tw2 then tw2:Cancel() end
+        ovs.Color = stateColor(); ovs.Transparency = 0
+        tw1 = TweenService:Create(ov, TweenInfo.new(.08), {BackgroundTransparency = .68}); tw1:Play()
+        loop()
+    end
+    local function release()
+        if not down then return end
+        down = false
+        task.delay(.12, function()
+            if down or not btn.Parent then return end
+            tw1 = TweenService:Create(ov, TweenInfo.new(.2), {BackgroundTransparency = 1}); tw1:Play()
+            tw2 = TweenService:Create(ovs, TweenInfo.new(.2), {Transparency = 1}); tw2:Play()
+        end)
+    end
+    btn.MouseButton1Down:Connect(press)
+    btn.MouseButton1Up:Connect(release)
+    btn.MouseLeave:Connect(release)
+    UserInputService.InputEnded:Connect(function(io)
+        if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then release() end
+    end)
+end
+
 local function bindTap(btn, fn)
     -- Clique simples e direto (igual a lib que funciona no mobile): MouseButton1Click + Activated
     local last = 0
@@ -377,8 +464,101 @@ local function copyText(text)
     return false
 end
 
-local OrionLib = { Icons = Icons, GetIcon = icon, Copy = copyText, BindTap = bindTap }
+-- bolinha desliza para o lado com "quique" (passa um pouco do ponto e volta), ao ligar e ao desligar
+local function slideTo(obj, target)
+    pcall(function()
+        TweenService:Create(obj, TweenInfo.new(.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = target}):Play()
+    end)
+end
 
+local OrionLib = { Icons = Icons, GetIcon = icon, Copy = copyText, BindTap = bindTap }
+-- ocultar nome do jogador (olho): estado compartilhado entre o perfil da sidebar e o Home
+OrionLib._nameCbs = {}
+OrionLib._toggles = {}
+OrionLib.HideName = false
+pcall(function() OrionLib.HideName = (_G.__OrionSecGet("__hideName") == true) end)
+OrionLib.MaskText = function(t, maxLen)
+    t = tostring(t or "")
+    return string.rep("\226\128\162", math.clamp(utf8.len(t) or #t, 4, maxLen or 12))
+end
+OrionLib.SetHideName = function(v)
+    OrionLib.HideName = v and true or false
+    pcall(function() _G.__OrionSecSet("__hideName", OrionLib.HideName) end)
+    for _, f in ipairs(OrionLib._nameCbs) do pcall(f, OrionLib.HideName) end
+end
+-- registra um TextLabel cujo texto fica "borrado" quando o nome esta oculto
+OrionLib.BindNameLabel = function(lbl, prefix, maxLen)
+    prefix = prefix or ""
+    local real = lbl.Text
+    local trunc = lbl.TextTruncate
+    local function apply(h)
+        if not lbl.Parent then return end
+        -- oculto: sem "..." (so as bolinhas); visivel: volta o truncamento normal
+        lbl.TextTruncate = h and Enum.TextTruncate.None or trunc
+        lbl.ClipsDescendants = h and true or false
+        lbl.Text = h and (prefix .. OrionLib.MaskText(real:sub(#prefix + 1), maxLen)) or real
+    end
+    table.insert(OrionLib._nameCbs, apply)
+    apply(OrionLib.HideName)
+end
+
+-- ===== PROTECAO: o jogo nao consegue remover/esconder a interface nem os efeitos do hub =====
+do
+    local genv = (type(getgenv) == "function" and getgenv()) or _G
+    local reg = genv.__OrionProt
+    if not reg then reg = setmetatable({}, {__mode = "k"}); genv.__OrionProt = reg end
+    OrionLib.Protect = function(inst) if inst then reg[inst] = true end return inst end
+    if not genv.__OrionHooked and hookmetamethod and checkcaller and getnamecallmethod and newcclosure then
+        local okH = pcall(function()
+            local function isProt(o)
+                if typeof(o) ~= "Instance" then return false end
+                for _ = 1, 20 do
+                    if reg[o] then return true end
+                    o = o.Parent
+                    if not o then return false end
+                end
+                return false
+            end
+            local oldNC
+            oldNC = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+                local m = getnamecallmethod()
+                if (m == "Destroy" or m == "Remove" or m == "ClearAllChildren") and not checkcaller() then
+                    if m ~= "ClearAllChildren" then
+                        if isProt(self) then return end
+                    else
+                        local ok, kids = pcall(function() return self:GetChildren() end)
+                        local has = false
+                        if ok then for _, c in ipairs(kids) do if reg[c] then has = true; break end end end
+                        if has then
+                            for _, c in ipairs(kids) do if not reg[c] then pcall(function() c:Destroy() end) end end
+                            return
+                        end
+                        setnamecallmethod(m)
+                    end
+                end
+                return oldNC(self, ...)
+            end))
+            local oldNI
+            oldNI = hookmetamethod(game, "__newindex", newcclosure(function(self, k, v)
+                if reg[self] and not checkcaller() then
+                    if k == "Parent" or ((k == "Enabled" or k == "Disabled") and (v == false or v == true) and ((k == "Enabled" and v == false) or (k == "Disabled" and v == true))) then
+                        return
+                    end
+                end
+                return oldNI(self, k, v)
+            end))
+        end)
+        genv.__OrionHooked = okH and true or nil
+    end
+end
+
+function OrionLib.KillBlur()
+    pcall(function()
+        for _, o in ipairs(game:GetService("Lighting"):GetChildren()) do
+            if o.Name == "OrionStudios_Blur" then o:Destroy() end
+        end
+    end)
+end
 local Bell = { items = {}, render = nil,
     COL = { success = Color3.fromRGB(34,197,94), warning = Color3.fromRGB(255,171,0), error = Color3.fromRGB(255,86,48) },
     ICON = { success = {"circle-check","check-circle-2","check-circle","check"}, warning = {"triangle-alert","alert-triangle","clock","info"}, error = {"circle-x","x-circle","circle-alert","alert-circle","x"} } }
@@ -407,7 +587,7 @@ end
 
 function OrionLib:Window(cfg)
     cfg = cfg or {}
-    local titleText = cfg.Title or "Orion Studios"
+    local titleText = cfg.Title or "Orion Hub"
     local camera = workspace.CurrentCamera
     local function viewport()
         local ok, v = pcall(function() return camera.ViewportSize end)
@@ -421,6 +601,7 @@ function OrionLib:Window(cfg)
     local playerGui
     local screen = Instance.new("ScreenGui")
     screen.Name = "OrionStudios_WinUI"
+    OrionLib.Protect(screen)
     screen.ResetOnSpawn = false
     screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     pcall(function() screen.DisplayOrder = 2147483646 end) -- logo abaixo do botao flutuante
@@ -431,6 +612,24 @@ function OrionLib:Window(cfg)
     if not screen.Parent then
         pcall(function() screen.Parent = Players.LocalPlayer:WaitForChild("PlayerGui") end)
     end
+    -- VIGIA: impede a interface de sumir (jogo/anti-cheat/limpeza do executor)
+    task.spawn(function()
+        while true do
+            task.wait(0.5)
+            if screen:GetAttribute("OrionClosing") then break end
+            pcall(function()
+                if not screen.Enabled then screen.Enabled = true end
+                if screen.DisplayOrder ~= 2147483646 then screen.DisplayOrder = 2147483646 end
+                local want = (gethui and gethui()) or CoreGui
+                if screen.Parent == nil or (screen.Parent ~= want and screen.Parent ~= Players.LocalPlayer:FindFirstChild("PlayerGui")) then
+                    local ok = pcall(function() screen.Parent = want end)
+                    if not ok or not screen.Parent then
+                        pcall(function() screen.Parent = Players.LocalPlayer:WaitForChild("PlayerGui", 3) end)
+                    end
+                end
+            end)
+        end
+    end)
 
     local holder = Instance.new("Frame")
     holder.Name = "MainHolder"
@@ -480,7 +679,7 @@ function OrionLib:Window(cfg)
             for _, old in ipairs(Lighting:GetChildren()) do
                 if old.Name == "OrionStudios_Blur" then old:Destroy() end
             end
-            blur = Instance.new("BlurEffect"); blur.Name = "OrionStudios_Blur"; blur.Size = 0; blur.Parent = Lighting
+            blur = Instance.new("BlurEffect"); blur.Name = "OrionStudios_Blur"; OrionLib.Protect(blur); blur.Size = 0; blur.Parent = Lighting
         end)
         local function setBlur(on)
             if not blur or not blur.Parent then return end
@@ -494,11 +693,12 @@ function OrionLib:Window(cfg)
         task.spawn(function()
             while screen.Parent do
                 task.wait(0.4)
+                if not screen.Parent then break end
                 pcall(function()
                     local L = game:GetService("Lighting")
                     local fix = false
                     if not blur or not blur.Parent then
-                        blur = Instance.new("BlurEffect"); blur.Name = "OrionStudios_Blur"; blur.Size = 0; blur.Parent = L; fix = true
+                        blur = Instance.new("BlurEffect"); blur.Name = "OrionStudios_Blur"; OrionLib.Protect(blur); blur.Size = 0; blur.Parent = L; fix = true
                     end
                     if blur.Parent ~= L then blur.Parent = L; fix = true end
                     if not blur.Enabled then blur.Enabled = true; fix = true end
@@ -510,7 +710,7 @@ function OrionLib:Window(cfg)
             if not parent and blur then pcall(function() blur:Destroy() end); blur = nil end
         end)
     end
-    local outline = stroke(holder, T.accent, 0.45, 1.2)
+    local outline = stroke(holder, T.accent, 0.55, 1.2)
     pcall(function()
         if camera then
             camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
@@ -548,12 +748,12 @@ function OrionLib:Window(cfg)
     logoFrame.BorderSizePixel = 0
     logoFrame.Parent = header
     corner(logoFrame, 10)
-    stroke(logoFrame, T.accent, 0.35, 1)
+    stroke(logoFrame, T.accent, 0.4, 1)
     local logo = Instance.new("ImageLabel")
     logo.Size = UDim2.new(1, -6, 1, -6)
     logo.Position = UDim2.new(0, 3, 0, 3)
     logo.BackgroundTransparency = 1
-    logo.Image = "rbxassetid://106423297301247"
+    logo.Image = "rbxassetid://7733960981"
     logo.ScaleType = Enum.ScaleType.Fit
     logo.Parent = logoFrame
 
@@ -562,19 +762,50 @@ function OrionLib:Window(cfg)
     title.Position = UDim2.new(0, 56, 0, 6)
     title.Size = UDim2.new(1, -190, 0, 20)
     title.TextTruncate = Enum.TextTruncate.AtEnd
-    local brand = label(header, "ORION STUDIOS", 9, T.accent, Enum.Font.GothamBold)
+    local brand = label(header, "ORION HUB", 9, T.accent, Enum.Font.GothamBold)
     brand.Position = UDim2.new(0, 57, 0, 27)
     brand.Size = UDim2.new(0, 210, 0, 14)
     brand.TextXAlignment = Enum.TextXAlignment.Left
 
+    -- destaque durante o clique: escurece o fundo e mantem o botao claro (usado em minimizar e na seta)
+    local function pressDim(btn, pos)
+        btn.InputBegan:Connect(function(io)
+            if io.UserInputType ~= Enum.UserInputType.MouseButton1 and io.UserInputType ~= Enum.UserInputType.Touch then return end
+            if holder:FindFirstChild("PressDim") or holder:FindFirstChild("CloseConfirm") then return end
+            local src
+            for _, d in ipairs(btn:GetDescendants()) do if d:IsA("ImageLabel") then src = d; break end end
+            local ov = Instance.new("Frame"); ov.Name = "PressDim"; ov.Size = UDim2.new(1, 0, 1, 0); ov.BackgroundColor3 = Color3.new(0, 0, 0)
+            ov.BackgroundTransparency = 1; ov.BorderSizePixel = 0; ov.ZIndex = 190; ov.Active = false; ov.Parent = holder; corner(ov, 14)
+            TweenService:Create(ov, TweenInfo.new(.15, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {BackgroundTransparency = .3}):Play()
+            local cp = Instance.new("Frame"); cp.Size = UDim2.new(0, 28, 0, 28); cp.Position = pos; cp.BackgroundColor3 = T.panel
+            cp.BorderSizePixel = 0; cp.ZIndex = 191; cp.Active = false; cp.Parent = ov; corner(cp, 8); stroke(cp, T.silver2, .15, 1.2)
+            if src then
+                local im = Instance.new("ImageLabel"); im.Size = UDim2.new(0, 14, 0, 14); im.AnchorPoint = Vector2.new(.5, .5)
+                im.Position = UDim2.new(.5, 0, .5, 0); im.BackgroundTransparency = 1; im.Image = src.Image; im.Rotation = src.Rotation
+                im.ImageColor3 = T.white; im.ZIndex = 192; im.Parent = cp
+            end
+            local done = false
+            local function release()
+                if done then return end; done = true
+                local tw = TweenService:Create(ov, TweenInfo.new(.15, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+                tw.Completed:Connect(function() pcall(function() ov:Destroy() end) end); tw:Play()
+                cp.Visible = false
+            end
+            io.Changed:Connect(function() if io.UserInputState == Enum.UserInputState.End then release() end end)
+            task.delay(4, release)
+        end)
+    end
+
     local minimize = button(header, "Minimize", UDim2.new(0, 28, 0, 28), UDim2.new(1, -72, 0, 12), T.panel)
     corner(minimize, 8); stroke(minimize, T.border, 0, 1)
+    pressDim(minimize, UDim2.new(1, -72, 0, 12))
     local minIcon = Instance.new("ImageLabel")
     minIcon.Size = UDim2.new(0, 14, 0, 14); minIcon.AnchorPoint = Vector2.new(.5,.5)
     minIcon.Position = UDim2.new(.5,0,.5,0); minIcon.BackgroundTransparency = 1
     minIcon.Image = icon("minus"); minIcon.ImageColor3 = T.silver; minIcon.Parent = minimize
     local close = button(header, "Close", UDim2.new(0, 28, 0, 28), UDim2.new(1, -38, 0, 12), T.panel)
     corner(close, 8); stroke(close, T.border, 0, 1)
+    pressDim(close, UDim2.new(1, -38, 0, 12))
     local closeIcon = Instance.new("ImageLabel")
     closeIcon.Size = UDim2.new(0, 14, 0, 14); closeIcon.AnchorPoint = Vector2.new(.5,.5)
     closeIcon.Position = UDim2.new(.5,0,.5,0); closeIcon.BackgroundTransparency = 1
@@ -587,6 +818,13 @@ function OrionLib:Window(cfg)
         ov.Size = UDim2.new(1, 0, 1, 0); ov.BackgroundColor3 = Color3.new(0, 0, 0); ov.BackgroundTransparency = 1
         ov.BorderSizePixel = 0; ov.ZIndex = 200; ov.Active = true; ov.Parent = holder
         corner(ov, 14)
+        do -- botao X destacado (sem escurecer) para clicar e voltar
+            local xc = button(ov, "XCopy", UDim2.new(0, 28, 0, 28), UDim2.new(1, -38, 0, 12), T.panel)
+            xc.Text = ""; xc.ZIndex = 220; corner(xc, 8); stroke(xc, T.silver2, .15, 1.2)
+            local xi = Instance.new("ImageLabel"); xi.Size = UDim2.new(0, 14, 0, 14); xi.AnchorPoint = Vector2.new(.5, .5)
+            xi.Position = UDim2.new(.5, 0, .5, 0); xi.BackgroundTransparency = 1; xi.Image = icon("x"); xi.ImageColor3 = T.white; xi.ZIndex = 221; xi.Parent = xc
+            bindTap(xc, function() ov:Destroy() end)
+        end
         local cw = math.min(300, winW - 30)
         local card = Instance.new("Frame"); card.Name = "Card"
         card.AnchorPoint = Vector2.new(.5, .5); card.Position = UDim2.new(.5, 0, .5, 0)
@@ -596,18 +834,6 @@ function OrionLib:Window(cfg)
         local cover = Instance.new("Frame"); cover.Name = "FadeCover"; cover.Size = UDim2.new(1, 0, 1, 0)
         cover.BackgroundColor3 = Color3.fromRGB(14, 14, 18); cover.BorderSizePixel = 0; cover.ZIndex = 210; cover.Active = false; cover.Parent = card
         corner(cover, 10)
-        -- brilho atras do cartao (mesmo estilo da outra lib), girando no relogio unico de luz
-        local glow = Instance.new("Frame"); glow.Name = "Glow"; glow.AnchorPoint = Vector2.new(.5, .5)
-        glow.Position = UDim2.new(.5, 0, .5, 0); glow.Size = UDim2.new(0, cw + 10, 0, 160)
-        glow.BackgroundColor3 = Color3.new(1, 1, 1); glow.BackgroundTransparency = .78; glow.BorderSizePixel = 0; glow.ZIndex = 201; glow.Parent = ov
-        corner(glow, 12)
-        local gg = Instance.new("UIGradient")
-        gg.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)), ColorSequenceKeypoint.new(.25, Color3.fromRGB(150, 150, 162)),
-            ColorSequenceKeypoint.new(.5, Color3.fromRGB(255, 255, 255)), ColorSequenceKeypoint.new(.75, Color3.fromRGB(150, 150, 162)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255)),
-        })
-        gg.Parent = glow; lightGrads[#lightGrads + 1] = gg
         local ls = Instance.new("UIStroke"); ls.Thickness = 1.6; ls.Color = Color3.new(1, 1, 1)
         ls.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; ls.Parent = card
         local lg = Instance.new("UIGradient")
@@ -671,18 +897,25 @@ function OrionLib:Window(cfg)
         TweenService:Create(cover, fi, {BackgroundTransparency = 1}):Play()
         bindTap(no, function() ov:Destroy() end) -- some na hora, sem animacao
         bindTap(yes, function()
+            -- ao fechar a lib: desativa todos os toggles (ESP ... Configuracoes)
+            for _, ctl in ipairs(OrionLib._toggles or {}) do
+                pcall(function() if ctl.GetValue() then ctl:Set(false, true) end end)
+            end
             pcall(function() if closeHooks.float and closeHooks.float.Destroy then closeHooks.float:Destroy() end end)
             pcall(function()
                 local fl = screen.Parent and screen.Parent:FindFirstChild("OrionStudios_Float")
                 if fl then fl:Destroy() end
             end)
+            pcall(function() screen:SetAttribute("OrionClosing", true) end)
             screen:Destroy()
+            OrionLib.KillBlur(); task.delay(.3, OrionLib.KillBlur); task.delay(1, OrionLib.KillBlur)
         end)
     end)
     -- sino de notificacoes (fica a esquerda do botao minimizar)
     do
         local bell = button(header, "Bell", UDim2.new(0, 28, 0, 28), UDim2.new(1, -106, 0, 12), T.panel)
         corner(bell, 8); stroke(bell, T.border, 0, 1)
+        pressDim(bell, UDim2.new(1, -106, 0, 12))
         local bellIco = Instance.new("ImageLabel")
         bellIco.Size = UDim2.new(0, 14, 0, 14); bellIco.AnchorPoint = Vector2.new(.5,.5)
         bellIco.Position = UDim2.new(.5,0,.5,0); bellIco.BackgroundTransparency = 1
@@ -697,7 +930,37 @@ function OrionLib:Window(cfg)
         pop.Name = "NotifPanel"; pop.AnchorPoint = Vector2.new(1, 0); pop.Position = UDim2.new(1, -60, 0, 58)
         pop.Size = UDim2.new(0, 300, 0, 300); pop.BackgroundColor3 = T.panel; pop.BorderSizePixel = 0
         pop.Visible = false; pop.ZIndex = 50; pop.Parent = holder
-        corner(pop, 10); stroke(pop, T.border, 0, 1)
+        corner(pop, 10); stroke(pop, T.silver2, .45, 1.2)
+        do -- fundo escurecido (igual ao do X) + contorno prateado com brilho girando
+            local ls = Instance.new("UIStroke"); ls.Thickness = 1.6; ls.Color = Color3.new(1, 1, 1)
+            ls.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; ls.Parent = pop
+            local lg = Instance.new("UIGradient")
+            lg.Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(.30, 1), NumberSequenceKeypoint.new(.42, .35),
+                NumberSequenceKeypoint.new(.50, 0), NumberSequenceKeypoint.new(.58, .35), NumberSequenceKeypoint.new(.70, 1),
+                NumberSequenceKeypoint.new(1, 1),
+            })
+            lg.Parent = ls; lightGrads[#lightGrads + 1] = lg
+            local dim = Instance.new("TextButton"); dim.Name = "NotifDim"; dim.Text = ""; dim.AutoButtonColor = false
+            dim.Size = UDim2.new(1, 0, 1, 0); dim.BackgroundColor3 = Color3.new(0, 0, 0); dim.BackgroundTransparency = 1
+            dim.BorderSizePixel = 0; dim.ZIndex = 49; dim.Visible = false; dim.Parent = holder; corner(dim, 14)
+            dim.Activated:Connect(function() pop.Visible = false end)
+            do -- sino destacado (sem escurecer) para clicar e voltar
+                local bc = button(dim, "BellCopy", UDim2.new(0, 28, 0, 28), UDim2.new(1, -106, 0, 12), T.panel)
+                bc.Text = ""; bc.ZIndex = 5; corner(bc, 8); stroke(bc, T.silver2, .15, 1.2)
+                local bi2 = Instance.new("ImageLabel"); bi2.Size = UDim2.new(0, 14, 0, 14); bi2.AnchorPoint = Vector2.new(.5, .5)
+                bi2.Position = UDim2.new(.5, 0, .5, 0); bi2.BackgroundTransparency = 1; bi2.Image = icon("bell"); bi2.ImageColor3 = T.white; bi2.ZIndex = 6; bi2.Parent = bc
+                bindTap(bc, function() pop.Visible = false end)
+            end
+            pop:GetPropertyChangedSignal("Visible"):Connect(function()
+                if pop.Visible then
+                    dim.Visible = true
+                    TweenService:Create(dim, TweenInfo.new(.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {BackgroundTransparency = .3}):Play()
+                else
+                    dim.BackgroundTransparency = 1; dim.Visible = false
+                end
+            end)
+        end
         local ptitle = label(pop, "Notificações", 14, T.white, Enum.Font.GothamBold)
         ptitle.Position = UDim2.new(0, 38, 0, 8); ptitle.Size = UDim2.new(1, -52, 0, 18)
         do
@@ -717,6 +980,7 @@ function OrionLib:Window(cfg)
         scroll.ScrollBarImageColor3 = T.silver2; scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
         scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y; scroll.ScrollingDirection = Enum.ScrollingDirection.Y; scroll.Parent = pop
         local sl = Instance.new("UIListLayout"); sl.SortOrder = Enum.SortOrder.LayoutOrder; sl.Parent = scroll
+                sl:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() task.defer(function() if scroll.Parent then scroll.CanvasPosition = Vector2.new(0, 1e6) end end) end)
         local sep2 = Instance.new("Frame"); sep2.Size = UDim2.new(1, 0, 0, 1); sep2.Position = UDim2.new(0, 0, 1, -41)
         sep2.BackgroundColor3 = T.border; sep2.BorderSizePixel = 0; sep2.Parent = pop
         local readAll = button(pop, "ReadAll", UDim2.new(1, -16, 0, 28), UDim2.new(0, 8, 1, -35), T.header)
@@ -764,6 +1028,13 @@ function OrionLib:Window(cfg)
                 local h = label(scroll, txt, 10, T.muted, Enum.Font.GothamBold)
                 h.LayoutOrder = order; h.Size = UDim2.new(1, 0, 0, 26)
                 local hp = Instance.new("UIPadding"); hp.PaddingLeft = UDim.new(0, 14); hp.PaddingTop = UDim.new(0, 6); hp.Parent = h
+                -- linha divisoria: ao marcar como lida ela se desenha da esquerda para a direita
+                local dl = Instance.new("Frame"); dl.Name = "DivLine"; dl.BorderSizePixel = 0; dl.BackgroundColor3 = T.silver2; dl.BackgroundTransparency = .55
+                dl.Position = UDim2.new(0, -14, 0, -6); dl.Size = Bell.animDiv and UDim2.new(0, 0, 0, 1) or UDim2.new(1, 28, 0, 1); dl.Parent = h
+                if Bell.animDiv then
+                    Bell.animDiv = false
+                    TweenService:Create(dl, TweenInfo.new(.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(1, 28, 0, 1)}):Play()
+                end
             end
             local function addRow(n)
                 order = order + 1
@@ -797,11 +1068,11 @@ function OrionLib:Window(cfg)
                 local l2 = label(cbox, Bell.ago(n.ts, pt), 12, T.muted)
                 l2.LayoutOrder = 2; l2.Size = UDim2.new(1, 0, 0, 14); l2.TextYAlignment = Enum.TextYAlignment.Top
                 if not n.read then
-                    local dot = Instance.new("Frame"); dot.Size = UDim2.new(0, 8, 0, 8); dot.AnchorPoint = Vector2.new(1, .5)
+                    local dot = Instance.new("Frame"); dot.Name = "UnreadDot"; dot.Size = UDim2.new(0, 8, 0, 8); dot.AnchorPoint = Vector2.new(1, .5)
                     dot.Position = UDim2.new(1, -12, .5, 0); dot.BackgroundColor3 = col; dot.BorderSizePixel = 0; dot.Parent = row; corner(dot, 4)
                 end
                 local hit = button(row, "Hit", UDim2.new(1, 0, 1, 0), UDim2.new(), Color3.new()); hit.BackgroundTransparency = 1; hit.Text = ""
-                bindTap(hit, function() n.read = true; render() end)
+                bindTap(hit, function() if n.read then return end n.read = true; Bell.animDiv = true; render() end)
             end
             if #Bell.items == 0 then
                 local e = label(scroll, pt and "Nenhuma notificação ainda." or "No notifications yet.", 11, T.muted)
@@ -814,7 +1085,7 @@ function OrionLib:Window(cfg)
             if #older > 0 then header2(pt and "ANTERIORES" or "EARLIER"); for _, n in ipairs(older) do addRow(n) end end
         end
         Bell.render = render
-        bindTap(readAll, function() for _, n in ipairs(Bell.items) do n.read = true end render() end)
+        bindTap(readAll, function() for _, n in ipairs(Bell.items) do n.read = true end Bell.animDiv = true render() end)
         bindTap(bell, function()
             if not pop.Visible then
                 local hh = holder.AbsoluteSize.Y
@@ -848,7 +1119,7 @@ function OrionLib:Window(cfg)
         holder:GetPropertyChangedSignal("Visible"):Connect(function() mv.Visible = holder.Visible end) -- abre/fecha junto, no mesmo instante
         local pill = Instance.new("Frame")
         pill.Name = "Pill"; pill.Size = UDim2.new(0, 100, 0, 3); pill.AnchorPoint = Vector2.new(.5, .5); pill.Position = UDim2.new(.5, 0, .5, 0)
-        pill.BackgroundColor3 = T.accent; pill.BackgroundTransparency = .25; pill.BorderSizePixel = 0; pill.ZIndex = 60; pill.Active = false; pill.Parent = mv; corner(pill, 3)
+        pill.BackgroundColor3 = T.silver2; pill.BackgroundTransparency = .25; pill.BorderSizePixel = 0; pill.ZIndex = 60; pill.Active = false; pill.Parent = mv; corner(pill, 3)
         draggable(mv, holder)
     end
 
@@ -862,7 +1133,7 @@ function OrionLib:Window(cfg)
             local bar = Instance.new("Frame")
             bar.Size = UDim2.new(0, spec[1], 0, 3); bar.AnchorPoint = Vector2.new(.5, .5)
             bar.Position = UDim2.new(1, spec[2], 1, spec[2]); bar.Rotation = -45
-            bar.BackgroundColor3 = T.accent; bar.BackgroundTransparency = .35; bar.BorderSizePixel = 0; bar.ZIndex = 61
+            bar.BackgroundColor3 = T.silver2; bar.BackgroundTransparency = .35; bar.BorderSizePixel = 0; bar.ZIndex = 61
             bar.Parent = grip; corner(bar, 2)
         end
         local held, lastInput, startMouse, startSize, startTL, startOff, startScale = false, nil, nil, nil, nil, nil, 1
@@ -915,8 +1186,8 @@ function OrionLib:Window(cfg)
     sideRule.Parent = sidebar
     local tabList = Instance.new("ScrollingFrame")
     tabList.Name = "Navigation"
-    tabList.Size = UDim2.new(1, -14, 1, -68)
-    tabList.Position = UDim2.new(0, 7, 0, 10)
+    tabList.Size = UDim2.new(1, -14, 1, -100)
+    tabList.Position = UDim2.new(0, 7, 0, 42)
     tabList.BackgroundTransparency = 1
     tabList.BorderSizePixel = 0
     tabList.ScrollBarThickness = 0
@@ -946,7 +1217,40 @@ function OrionLib:Window(cfg)
 
     local tabs, activeTab = {}, nil
     local collapsed = false
-    local function iconPos() return collapsed and UDim2.new(.5, -14, .5, -14) or UDim2.new(0, 7, .5, -14) end
+    local SB = {W = 64, H = 38, HC = 56}
+    local function iconPos() return collapsed and UDim2.new(.5, -14, 0, 5) or UDim2.new(0, 7, .5, -14) end
+    function SB.labelPos(on)
+        if collapsed then return UDim2.new(0, 2, 0, 36) end
+        return UDim2.new(0, 40, 0, 0) -- mesma linha/posicao em todas as abas
+    end
+    do -- barra "Filtrar" acima da primeira aba
+        local sf = Instance.new("Frame"); sf.Name = "TabFilter"
+        sf.Size = UDim2.new(1, -14, 0, 28); sf.Position = UDim2.new(0, 7, 0, 8)
+        sf.BackgroundColor3 = T.panel; sf.BorderSizePixel = 0; sf.Parent = sidebar
+        corner(sf, 8); local sst = stroke(sf, T.border, .1, 1)
+        local sx = 8
+        local sImg = icon("search")
+        if sImg ~= "" then
+            local si = Instance.new("ImageLabel"); si.BackgroundTransparency = 1; si.Size = UDim2.new(0, 14, 0, 14)
+            si.Position = UDim2.new(0, 8, .5, -7); si.Image = sImg; si.ImageColor3 = T.muted; si.Parent = sf
+            sx = 28
+        end
+        local box = Instance.new("TextBox"); box.Name = "FilterBox"; box.BackgroundTransparency = 1
+        box.Position = UDim2.new(0, sx, 0, 0); box.Size = UDim2.new(1, -(sx + 6), 1, 0)
+        box.ClearTextOnFocus = false; box.Text = ""; box.PlaceholderText = (OrionLib.IsPT == false) and "Search" or "Pesquisar"
+        box.PlaceholderColor3 = T.muted; box.TextColor3 = T.white; box.Font = Enum.Font.Gotham; box.TextSize = 12
+        box.TextXAlignment = Enum.TextXAlignment.Left; box.ClipsDescendants = true; box.Parent = sf
+        box.Focused:Connect(function() sst.Color = T.silver2 end)
+        box.FocusLost:Connect(function() sst.Color = T.border end)
+        SB.search, SB.box = sf, box
+        function SB.applyFilter()
+            local q = (box.Text or ""):lower():match("^%s*(.-)%s*$") or ""
+            for _, tab in ipairs(tabs) do
+                tab.button.Visible = (q == "") or (tostring(tab.Name):lower():find(q, 1, true) ~= nil)
+            end
+        end
+        box:GetPropertyChangedSignal("Text"):Connect(SB.applyFilter)
+    end
     local fadeCover = Instance.new("Frame"); fadeCover.Name = "FadeCover"
     fadeCover.Size = UDim2.new(1, 0, 1, 0); fadeCover.BackgroundColor3 = T.bg; fadeCover.BackgroundTransparency = 1
     fadeCover.BorderSizePixel = 0; fadeCover.ZIndex = 30; fadeCover.Active = false; fadeCover.Parent = content
@@ -970,7 +1274,7 @@ function OrionLib:Window(cfg)
             tab.icon.ImageColor3 = on and T.silver or T.muted
             TweenService:Create(tab.outline, quick, {Transparency = on and .45 or .75}):Play()
             if tab.activeLight then TweenService:Create(tab.activeLight, quick, {Transparency = on and 0 or 1}):Play() end
-            TweenService:Create(tab.label, quick, {Position = UDim2.new(0, on and 48 or 44, 0, 0)}):Play()
+            TweenService:Create(tab.label, quick, {Position = SB.labelPos(on)}):Play()
             TweenService:Create(tab.tile, quick, {Position = iconPos()}):Play()
             if on then
                 tab.indicator.Visible = true
@@ -991,7 +1295,7 @@ function OrionLib:Window(cfg)
         pf.Size = UDim2.new(1, -14, 0, 44); pf.Position = UDim2.new(0, 7, 1, -52)
         pf.BackgroundColor3 = T.panel; pf.BorderSizePixel = 0; pf.Parent = sidebar
         corner(pf, 10)
-        local pst = stroke(pf, T.accent, .45, 1.2) -- contorno verde elegante
+        local pst = stroke(pf, T.silver2, .55, 1.2) -- contorno prateado igual ao da janela
         local av = Instance.new("ImageLabel"); av.Name = "Avatar"
         av.Size = UDim2.new(0, 30, 0, 30); av.Position = UDim2.new(0, 7, .5, -15)
         av.BackgroundColor3 = T.sidebar; av.BorderSizePixel = 0
@@ -1022,6 +1326,7 @@ function OrionLib:Window(cfg)
         corner(dot, 4); stroke(dot, T.panel, 0, 1.5)
         local nm = label(pf, lp and lp.DisplayName or "Player", 12, T.white, Enum.Font.GothamBold)
         nm.Position = UDim2.new(0, 46, 0, 0); nm.Size = UDim2.new(1, -52, 1, 0); nm.TextTruncate = Enum.TextTruncate.AtEnd
+        OrionLib.BindNameLabel(nm, nil, 7)
         -- hover: fundo acende, foto cresce e nome brilha
         local hi = TweenInfo.new(.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
         pf.MouseEnter:Connect(function()
@@ -1058,6 +1363,7 @@ function OrionLib:Window(cfg)
     do
         local arrow = button(header, "CollapseBtn", UDim2.new(0, 28, 0, 28), UDim2.new(1, -140, 0, 12), T.panel)
         corner(arrow, 8); stroke(arrow, T.border, 0, 1)
+        pressDim(arrow, UDim2.new(1, -140, 0, 12))
         local arrowIco = Instance.new("ImageLabel"); arrowIco.Size = UDim2.new(0, 14, 0, 14); arrowIco.AnchorPoint = Vector2.new(.5, .5)
         arrowIco.Position = UDim2.new(.5, 0, .5, 0); arrowIco.BackgroundTransparency = 1; arrowIco.ImageColor3 = T.silver; arrowIco.Parent = arrow
         local function arrowSkin(c)
@@ -1067,30 +1373,45 @@ function OrionLib:Window(cfg)
             if img == "" then arrow.Text = c and "\u{203A}" or "\u{2039}"; arrow.TextColor3 = T.silver; arrow.Font = Enum.Font.GothamBold; arrow.TextSize = 20 end
         end
         arrowSkin(false)
-        bindTap(arrow, function()
-            collapsed = not collapsed
-            local w = collapsed and 54 or tabWidth
-            local ti = TweenInfo.new(.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local function applyCollapse(c, instant)
+            collapsed = c
+            local w = collapsed and SB.W or tabWidth
+            local ti = TweenInfo.new(instant and 0 or .25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
             TweenService:Create(sidebar, ti, {Size = UDim2.new(0, w, 1, -52)}):Play()
             TweenService:Create(content, ti, {Size = UDim2.new(1, -w, 1, -52), Position = UDim2.new(0, w, 0, 52)}):Play()
             arrowSkin(collapsed); profileSet(collapsed, ti)
+            if collapsed then pcall(function() SB.box.Text = "" end) end
+            pcall(function() SB.search.Visible = not collapsed end)
+            TweenService:Create(tabList, ti, {
+                Position = collapsed and UDim2.new(0, 7, 0, 10) or UDim2.new(0, 7, 0, 42),
+                Size = collapsed and UDim2.new(1, -14, 1, -68) or UDim2.new(1, -14, 1, -100),
+            }):Play()
             OrionLib.SidebarCollapsed = collapsed
             for _, f in ipairs(OrionLib._collapseCbs or {}) do pcall(f, collapsed) end
             for _, tab in ipairs(tabs) do
-                tab.label.Visible = not collapsed
-                TweenService:Create(tab.tile, ti, {Position = iconPos()}):Play()
+                if tab.relayout then tab.relayout(ti) end
             end
+        end
+        bindTap(arrow, function()
+            applyCollapse(not collapsed)
+            pcall(function() _G.__OrionSecSet("__sidebar", collapsed) end) -- salva o estado
         end)
+        do -- restaura o estado salvo (icones com nome embaixo)
+            local saved
+            pcall(function() saved = _G.__OrionSecGet("__sidebar") end)
+            if saved == true then applyCollapse(true, true) end
+        end
     end
 
+    function window:SelectTab(i) local it = tabs[i]; if it then pcall(setActive, it) end end
     function window:AddTab(tabCfg)
         tabCfg = tabCfg or {}
         local name = tabCfg.Name or ("Tab " .. (#tabs + 1))
-        local item = { Name = name }
-        local nav = button(tabList, "Nav_" .. name, UDim2.new(1, 0, 0, 38), UDim2.new(), T.sidebar)
+        local item = { Name = name, IconName = tabCfg.Icon or "home" }
+        local nav = button(tabList, "Nav_" .. name, UDim2.new(1, 0, 0, collapsed and SB.HC or SB.H), UDim2.new(), T.sidebar)
         nav.LayoutOrder = #tabs + 1
         corner(nav, 8)
-        local navStroke = stroke(nav, T.accent, .55, 1)
+        local navStroke = stroke(nav, T.silver2, .75, 1)
         local indicator = Instance.new("Frame")
         indicator.Size = UDim2.new(0, 3, 0, 20); indicator.Position = UDim2.new(0, 2, .5, -10)
         indicator.BackgroundColor3 = T.white; indicator.BorderSizePixel = 0; indicator.Visible = false; indicator.Parent = nav
@@ -1099,11 +1420,11 @@ function OrionLib:Window(cfg)
         local tile = Instance.new("Frame"); tile.Name = "IconTile"
         tile.Size = UDim2.new(0, 28, 0, 28); tile.Position = iconPos()
         tile.BackgroundColor3 = Color3.fromRGB(5, 5, 7); tile.BorderSizePixel = 0; tile.Parent = nav
-        corner(tile, 8); stroke(tile, T.accent, .4, 1)
+        corner(tile, 8); stroke(tile, T.silver2, .55, 1)
         navIcon.Size = UDim2.new(0, 16, 0, 16); navIcon.AnchorPoint = Vector2.new(.5, .5); navIcon.Position = UDim2.new(.5, 0, .5, 0)
         navIcon.BackgroundTransparency = 1; navIcon.Image = icon(tabCfg.Icon or "home"); navIcon.ImageColor3 = T.muted; navIcon.Parent = tile
         local navLabel = label(nav, name, 12, T.muted, Enum.Font.GothamMedium)
-        navLabel.Position = UDim2.new(0, 44, 0, 0); navLabel.Size = UDim2.new(1, -50, 1, 0)
+        navLabel.Position = UDim2.new(0, 40, 0, 0); navLabel.Size = UDim2.new(1, -46, 1, 0); navLabel.TextXAlignment = Enum.TextXAlignment.Left
         navLabel.TextTruncate = Enum.TextTruncate.AtEnd
 
         local page = Instance.new("ScrollingFrame")
@@ -1123,6 +1444,43 @@ function OrionLib:Window(cfg)
         local pad = Instance.new("UIPadding")
         pad.PaddingTop = UDim.new(0, 8); pad.PaddingBottom = UDim.new(0, 16); pad.PaddingLeft = UDim.new(0, 8); pad.PaddingRight = UDim.new(0, 12); pad.Parent = page
 
+        -- ===== efeito prateado (fundo cinza + contorno) em todos os cards da aba =====
+        if tabCfg.Silver then
+            local function dark(c) return c.R < .17 and c.G < .17 and c.B < .17 end
+            local function style(o)
+                if not o.Parent or o:GetAttribute("SilverFx") then return end
+                if not (o:IsA("Frame") or o:IsA("TextButton") or o:IsA("ImageButton")) then return end
+                if o.BackgroundTransparency > .5 or o.AbsoluteSize.Y < 22 or o.AbsoluteSize.X < 40 then return end
+                if not o:FindFirstChildOfClass("UICorner") then return end
+                if tabCfg.SilverSections then
+                    local okS = false
+                    for _, sn in ipairs(tabCfg.SilverSections) do if o.Name == "Section_" .. tostring(sn) then okS = true end end
+                    if not okS then return end
+                elseif not (o.Name:find("^Section_") or o.Name == "ScriptCard") then return end
+                if o.Name == "BorderLight" or o.Name:find("Scroll") or o.Name == "Thumb" then return end
+                o:SetAttribute("SilverFx", true)
+                local c = o.BackgroundColor3
+                if dark(c) then
+                    local nc = Color3.fromRGB(math.floor(c.R * 255) + 10, math.floor(c.G * 255) + 10, math.floor(c.B * 255) + 12)
+                    o.BackgroundColor3 = nc
+                end
+                local st
+                for _, ch in ipairs(o:GetChildren()) do
+                    if ch:IsA("UIStroke") and ch.Name ~= "BorderLight" and not ch:FindFirstChildOfClass("UIGradient") then st = ch; break end
+                end
+                if st then
+                    st.Color = Color3.fromRGB(150, 150, 162); st.Transparency = math.min(st.Transparency, .45)
+                    if st.Thickness < 1 then st.Thickness = 1 end
+                elseif not o:FindFirstChildOfClass("UIStroke") then
+                    local ns = Instance.new("UIStroke"); ns.Name = "SilverStroke"; ns.Thickness = 1; ns.Color = Color3.fromRGB(150, 150, 162)
+                    ns.Transparency = .45; ns.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; ns.Parent = o
+                end
+            end
+            local function queue(o) task.delay(.15, function() pcall(style, o) end) end
+            page.DescendantAdded:Connect(queue)
+            for _, o in ipairs(page:GetDescendants()) do queue(o) end
+        end
+
         -- barra de rolagem propria: tamanho fixo (nao encolhe) e arrastavel (move rapido como no PC)
         do
             local THUMB = 46
@@ -1132,7 +1490,7 @@ function OrionLib:Window(cfg)
             track.ZIndex = 40; track.Visible = false; track.Parent = content; corner(track, 4)
             local thumb = Instance.new("TextButton")
             thumb.Name = "Thumb"; thumb.Text = ""; thumb.AutoButtonColor = false; thumb.Size = UDim2.new(1, 0, 0, THUMB)
-            thumb.BackgroundColor3 = T.accent; thumb.BackgroundTransparency = .1; thumb.BorderSizePixel = 0; thumb.ZIndex = 41; thumb.Parent = track; corner(thumb, 4)
+            thumb.BackgroundColor3 = T.silver2; thumb.BackgroundTransparency = .1; thumb.BorderSizePixel = 0; thumb.ZIndex = 41; thumb.Parent = track; corner(thumb, 4)
             local function maxScroll() return math.max(0, page.AbsoluteCanvasSize.Y - page.AbsoluteSize.Y) end
             local function room() return math.max(1, track.AbsoluteSize.Y - THUMB) end
             local function refresh()
@@ -1221,6 +1579,22 @@ function OrionLib:Window(cfg)
 
         item.button, item.indicator, item.icon, item.label, item.outline, item.page = nav, indicator, navIcon, navLabel, navStroke, page
         item.tile = tile
+        item.relayout = function(ti)
+            local on = (activeTab == item)
+            if collapsed then
+                navLabel.TextXAlignment = Enum.TextXAlignment.Center
+                navLabel.TextSize = 9
+                navLabel.Size = UDim2.new(1, -4, 0, 16)
+            else
+                navLabel.TextXAlignment = Enum.TextXAlignment.Left
+                navLabel.TextSize = 12
+                navLabel.Size = UDim2.new(1, -46, 1, 0)
+            end
+            TweenService:Create(nav, ti, {Size = UDim2.new(1, 0, 0, collapsed and SB.HC or SB.H)}):Play()
+            TweenService:Create(navLabel, ti, {Position = SB.labelPos(on)}):Play()
+            TweenService:Create(tile, ti, {Position = iconPos()}):Play()
+        end
+        if collapsed then item.relayout(TweenInfo.new(0)) end
 
         -- ===== efeitos da aba: hover, clique (squish), brilho e icone animado =====
         do
@@ -1229,7 +1603,7 @@ function OrionLib:Window(cfg)
             local iconScale = Instance.new("UIScale"); iconScale.Parent = navIcon
             local shine = Instance.new("Frame")
             shine.Name = "Shine"; shine.Size = UDim2.new(0.35, 0, 1, 0); shine.Position = UDim2.new(-0.4, 0, 0, 0)
-            shine.BackgroundColor3 = Color3.new(1, 1, 1); shine.BackgroundTransparency = 0.8
+            shine.BackgroundColor3 = T.accent; shine.BackgroundTransparency = 0.8
             shine.BorderSizePixel = 0; shine.Visible = false; shine.Parent = nav
             local sg = Instance.new("UIGradient")
             sg.Transparency = NumberSequence.new({
@@ -1274,8 +1648,952 @@ function OrionLib:Window(cfg)
         end
 
         table.insert(tabs, item)
+        pcall(SB.applyFilter)
         bindTap(nav, function() setActive(item) end)
         if #tabs == 1 then setActive(item) end
+
+        function item:BuildHome(cfg)
+            cfg = cfg or {}
+            -- ===== sub-abas lado a lado: Dashboard | Youtube =====
+            local hostPage, dash = page, nil
+            local SUB = {}
+            do
+            local subTabs = cfg.SubTabs or {"Dashboard", "Suporte"}
+            local bar = Instance.new("Frame")
+            bar.Size = UDim2.new(1, 0, 0, 38); bar.BackgroundColor3 = Color3.fromRGB(24, 24, 29); bar.BorderSizePixel = 0
+            bar.LayoutOrder = -50; bar.Parent = hostPage; SUB.bar = bar
+            corner(bar, 11); stroke(bar, T.border, .3, 1)
+            local barPad = Instance.new("UIPadding"); barPad.PaddingTop = UDim.new(0, 4); barPad.PaddingBottom = UDim.new(0, 4)
+            barPad.PaddingLeft = UDim.new(0, 4); barPad.PaddingRight = UDim.new(0, 4); barPad.Parent = bar
+            local slider = Instance.new("Frame")
+            slider.Size = UDim2.new(.5, 0, 1, 0); slider.BackgroundColor3 = Color3.fromRGB(44, 44, 52); slider.BorderSizePixel = 0; slider.Parent = bar
+            corner(slider, 8); stroke(slider, T.silver2, .35, 1); SUB.slider = slider
+            local function mkPage(order, vis)
+                local f = Instance.new("Frame")
+                f.Size = UDim2.new(1, 0, 0, 0); f.AutomaticSize = Enum.AutomaticSize.Y; f.BackgroundTransparency = 1
+                f.BorderSizePixel = 0; f.LayoutOrder = order; f.Visible = vis; f.Parent = hostPage
+                local l = Instance.new("UIListLayout"); l.Padding = UDim.new(0, 12); l.SortOrder = Enum.SortOrder.LayoutOrder; l.Parent = f
+                return f
+            end
+            local ytPage
+            dash, ytPage = mkPage(1, true), mkPage(2, false)
+            local pagesBy = {dash, ytPage}
+            local subBtns = {}
+            local function selectSub(i)
+                for k, b in ipairs(subBtns) do
+                    pagesBy[k].Visible = (k == i)
+                    local c = (k == i) and T.white or T.muted
+                    TweenService:Create(b.lb, TweenInfo.new(.2), {TextColor3 = c}):Play()
+                    if b.ic then TweenService:Create(b.ic, TweenInfo.new(.2), {ImageColor3 = c}):Play() end
+                end
+                TweenService:Create(slider, TweenInfo.new(.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new((i - 1) * .5, 0, 0, 0)}):Play()
+            end
+            local SUBICON = {{"layout-dashboard", "layout-grid", "home"}, {"headset", "life-buoy", "message-circle", "circle-help"}}
+            for i, nm in ipairs(subTabs) do
+                local b = Instance.new("TextButton")
+                b.Size = UDim2.new(.5, 0, 1, 0); b.Position = UDim2.new((i - 1) * .5, 0, 0, 0); b.BackgroundTransparency = 1
+                b.Text = ""; b.AutoButtonColor = false; b.ZIndex = 2; b.Parent = bar
+                local col = (i == 1) and T.white or T.muted
+                local row = Instance.new("Frame"); row.BackgroundTransparency = 1; row.AnchorPoint = Vector2.new(.5, .5)
+                row.Position = UDim2.new(.5, 0, .5, 0); row.Size = UDim2.new(0, 0, 1, 0); row.AutomaticSize = Enum.AutomaticSize.X; row.ZIndex = 3; row.Parent = b
+                local rl = Instance.new("UIListLayout"); rl.FillDirection = Enum.FillDirection.Horizontal; rl.Padding = UDim.new(0, 7)
+                rl.VerticalAlignment = Enum.VerticalAlignment.Center; rl.SortOrder = Enum.SortOrder.LayoutOrder; rl.Parent = row
+                local img
+                for _, n in ipairs(SUBICON[i] or {}) do local ic = icon(n); if ic ~= "" then img = ic; break end end
+                local icl
+                if img then
+                    icl = Instance.new("ImageLabel"); icl.Size = UDim2.new(0, 16, 0, 16); icl.BackgroundTransparency = 1; icl.Image = img
+                    icl.ImageColor3 = col; icl.LayoutOrder = 1; icl.ZIndex = 3; icl.Parent = row
+                end
+                local lb = Instance.new("TextLabel"); lb.BackgroundTransparency = 1; lb.Text = nm; lb.Font = Enum.Font.GothamBold; lb.TextSize = 13
+                lb.TextColor3 = col; lb.Size = UDim2.new(0, 0, 0, 16); lb.AutomaticSize = Enum.AutomaticSize.X; lb.LayoutOrder = 2; lb.ZIndex = 3; lb.Parent = row
+                pcall(function() -- reflexo prateado no nome da sub-aba (Dashboard / Youtube)
+                    local sg = Instance.new("UIGradient")
+                    sg.Color = ColorSequence.new({
+                        ColorSequenceKeypoint.new(0, Color3.fromRGB(150,150,162)),
+                        ColorSequenceKeypoint.new(.5, Color3.fromRGB(255,255,255)),
+                        ColorSequenceKeypoint.new(1, Color3.fromRGB(150,150,162))})
+                    sg.Rotation = 20; sg.Offset = Vector2.new(-1,0); sg.Parent = lb
+                    lightSheens[#lightSheens + 1] = sg
+                end)
+                b.Activated:Connect(function() selectSub(i) end)
+                subBtns[i] = {btn = b, ic = icl, lb = lb}
+            end
+            -- ===== Chat de suporte com IA (dentro da sub-aba Suporte) =====
+            do
+                local ask = cfg.SupportFn
+                local PANEL = Color3.fromRGB(23, 23, 28)
+                local GRAY, GRAY_IC = Color3.fromRGB(58, 58, 66), Color3.fromRGB(120, 120, 132)
+                local chat = Instance.new("Frame")
+                chat.Name = "SupportChat"; chat.Size = UDim2.new(1, 0, 0, 410); chat.BackgroundColor3 = PANEL
+                chat.BorderSizePixel = 0; chat.LayoutOrder = 1; chat.Parent = ytPage
+                corner(chat, 14); stroke(chat, T.border, .3, 1)
+                local head = label(chat, "Suporte com Inteligência Artificial", 14, T.white, Enum.Font.GothamBold)
+                head.Position = UDim2.new(0, 40, 0, 10); head.Size = UDim2.new(1, -56, 0, 20)
+                do
+                    local aiI = ""
+                    for _, n in ipairs({"sparkles", "bot", "brain", "message-circle"}) do local i0 = icon(n); if i0 ~= "" then aiI = i0; break end end
+                    if aiI ~= "" then
+                        local im = Instance.new("ImageLabel"); im.Size = UDim2.new(0, 18, 0, 18); im.Position = UDim2.new(0, 16, 0, 11)
+                        im.BackgroundTransparency = 1; im.Image = aiI; im.ImageColor3 = T.white; im.Parent = chat
+                    else
+                        head.Position = UDim2.new(0, 16, 0, 10); head.Size = UDim2.new(1, -32, 0, 20)
+                    end
+                end
+                local HSUB = "Olá! Seja muito bem-vindo! Estou aqui para ajudar e esclarecer qualquer dúvida que você tenha sobre os recursos, funcionalidades, utilização e planos disponíveis do script. Fique à vontade para perguntar!"
+                local hsub = label(chat, HSUB, 11, T.muted, Enum.Font.Gotham)
+                hsub.Position = UDim2.new(0, 16, 0, 32); hsub.Size = UDim2.new(1, -32, 0, 46); hsub.TextWrapped = true; hsub.TextYAlignment = Enum.TextYAlignment.Top
+
+                local scroll = Instance.new("ScrollingFrame")
+                scroll.Position = UDim2.new(0, 10, 0, 84); scroll.Size = UDim2.new(1, -20, 1, -142)
+                scroll.BackgroundTransparency = 1; scroll.BorderSizePixel = 0; scroll.ScrollBarThickness = 3
+                scroll.ScrollBarImageColor3 = T.silver2; scroll.CanvasSize = UDim2.new(); scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y; scroll.ElasticBehavior = Enum.ElasticBehavior.Never; scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+                scroll.Parent = chat
+                -- quebra natural: segue a largura atual da skin; altura do texto se ajusta e a lista desce junto
+                do
+                    local TS = game:GetService("TextService")
+                    local function fit()
+                        local avail = chat.AbsoluteSize.X - 32
+                        if avail < 60 then return end
+                        local ok, v = pcall(function() return TS:GetTextSize(HSUB, hsub.TextSize, Enum.Font.Gotham, Vector2.new(avail, 10000)) end)
+                        local h = (ok and v.Y or 46) + 2
+                        hsub.Size = UDim2.new(1, -32, 0, h)
+                        local top = 32 + h + 6
+                        scroll.Position = UDim2.new(0, 10, 0, top)
+                        scroll.Size = UDim2.new(1, -20, 1, -(top + 58))
+                    end
+                    chat:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
+                    task.defer(fit)
+                end
+                local sl = Instance.new("UIListLayout"); sl.Padding = UDim.new(0, 8); sl.SortOrder = Enum.SortOrder.LayoutOrder; sl.Parent = scroll
+                local msgN = 0
+                local TextSvc = game:GetService("TextService")
+                local shown, measures = {}, {}
+                scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() for _, m in ipairs(measures) do pcall(m) end end)
+local function mdConv(t)
+                    t = tostring(t or ""):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
+                    t = t:gsub("\n#+%s*([^\n]+)", "\n**%1**"):gsub("^#+%s*([^\n]+)", "**%1**")
+                    t = t:gsub("\n%s*[%-%*]%s+", "\n• "):gsub("^%s*[%-%*]%s+", "• ")
+                    t = t:gsub("%*%*(.-)%*%*", '<b><font color="#FFFFFF">%1</font></b>')
+                    t = t:gsub("__(.-)__", "<u>%1</u>"):gsub("~~(.-)~~", "<s>%1</s>")
+                    t = t:gsub("`([^`\n]+)`", '<font color="#8FD0FF">%1</font>')
+                    t = t:gsub("%*([^%*\n]+)%*", "<i>%1</i>")
+                    local plain = t:gsub("<[^>]+>", ""):gsub("&lt;", "<"):gsub("&gt;", ">"):gsub("&amp;", "&")
+                    return t, plain
+                end
+                local function addMsg(text, isUser)
+                    msgN = msgN + 1
+                    local holder = Instance.new("Frame"); holder.Size = UDim2.new(1, -6, 0, 0); holder.AutomaticSize = Enum.AutomaticSize.Y
+                    holder.BackgroundTransparency = 1; holder.BorderSizePixel = 0; holder.LayoutOrder = msgN; holder.Parent = scroll
+                    local bub = Instance.new("Frame"); bub.Size = UDim2.new(.86, 0, 0, 0); bub.AutomaticSize = Enum.AutomaticSize.Y
+                    bub.AnchorPoint = Vector2.new(isUser and 1 or 0, 0); bub.Position = UDim2.new(isUser and 1 or 0, 0, 0, 0)
+                    bub.BackgroundColor3 = isUser and Color3.fromRGB(52, 52, 60) or Color3.fromRGB(32, 32, 38); bub.BorderSizePixel = 0; bub.Parent = holder
+                    corner(bub, 10)
+                    local pd = Instance.new("UIPadding"); pd.PaddingTop = UDim.new(0, 7); pd.PaddingBottom = UDim.new(0, 7)
+                    pd.PaddingLeft = UDim.new(0, 11); pd.PaddingRight = UDim.new(0, 11); pd.Parent = bub
+                    local tl = Instance.new("TextLabel"); tl.BackgroundTransparency = 1; tl.AutomaticSize = Enum.AutomaticSize.Y
+                    tl.Size = UDim2.new(1, 0, 0, 0); tl.Font = Enum.Font.Gotham; tl.TextSize = 12
+                    tl.TextColor3 = isUser and T.white or T.silver; tl.TextWrapped = true; tl.RichText = not isUser
+                    tl.TextXAlignment = Enum.TextXAlignment.Left; tl.TextYAlignment = Enum.TextYAlignment.Top
+                    local plainTxt, converting, lastRich = tostring(text or ""), false, nil
+                    if not isUser then local r, pl = mdConv(text); lastRich = r; tl.Text = r; plainTxt = pl else tl.Text = plainTxt end
+                    tl.Parent = bub
+                    local function measure()
+                        local avail = scroll.AbsoluteSize.X
+                        if avail <= 0 then avail = 300 end
+                        local maxW = math.max(120, math.floor((avail - 6) * .86) - 22)
+                        local okb, sz = pcall(function() return TextSvc:GetTextSize(plainTxt, 12, Enum.Font.Gotham, Vector2.new(100000, 100000)) end)
+                        if okb and sz.X + 14 < maxW and not plainTxt:find("\n") then bub.Size = UDim2.new(0, math.ceil(sz.X) + 14 + 22, 0, 0)
+                        else bub.Size = UDim2.new(.86, 0, 0, 0) end
+                    end
+                    measure(); measures[#measures + 1] = measure
+                    tl:GetPropertyChangedSignal("Text"):Connect(function()
+                        if not isUser then
+                            if tl.Text == lastRich then return end -- texto ja convertido (evita escapar &amp; de novo)
+                            local r, pl = mdConv(tl.Text); lastRich = r; plainTxt = pl; tl.Text = r
+                        else plainTxt = tl.Text end
+                        measure()
+                        task.defer(function() if scroll.Parent then scroll.CanvasPosition = Vector2.new(0, 1e6) end end)
+                    end)
+                    -- mantem poucas mensagens desenhadas para o scroll ficar leve
+                    shown[#shown + 1] = holder
+                    while #shown > 40 do local old = table.remove(shown, 1); table.remove(measures, 1); pcall(function() old:Destroy() end) end
+                    task.defer(function() if scroll.Parent then scroll.CanvasPosition = Vector2.new(0, 1e6) end end)
+                    return tl
+                end
+                -- ao abrir o chat, vai direto para a ultima mensagem
+                task.spawn(function()
+                    local was = false
+                    while chat.Parent do
+                        local shownNow, a = true, chat
+                        while a and a:IsA("GuiObject") do if not a.Visible then shownNow = false end a = a.Parent end
+                        if a and a:IsA("ScreenGui") and not a.Enabled then shownNow = false end
+                        if shownNow and not was then
+                            for _, d in ipairs({0, .05, .2, .5}) do
+                                task.delay(d, function() if scroll.Parent then scroll.CanvasPosition = Vector2.new(0, 1e6) end end)
+                            end
+                        end
+                        was = shownNow
+                        task.wait(.3)
+                    end
+                end)
+                local HSv = game:GetService("HttpService")
+                local SAVE
+                pcall(function() SAVE = _G.__OrionPath("Chat", "Support.json") end)
+                local log = {}
+                pcall(function()
+                    if SAVE and isfile and isfile(SAVE) then
+                        local d = HSv:JSONDecode(readfile(SAVE))
+                        if type(d) == "table" then log = d end
+                    end
+                end)
+                local function persist()
+                    pcall(function()
+                        while #log > 60 do table.remove(log, 1) end
+                        if SAVE and writefile then writefile(SAVE, HSv:JSONEncode(log)) end
+                    end)
+                end
+                if #log == 0 then
+                    addMsg("Olá! Me chamo removed, sou o criador do Orion Hub e esta é uma réplica da minha mente. Posso ajudá-lo com algo?", false)
+                else
+                    for _, m in ipairs(log) do if type(m) == "table" and type(m.t) == "string" then addMsg(m.t, m.u == true) end end
+                end
+
+                local inRow = Instance.new("Frame"); inRow.AnchorPoint = Vector2.new(0, 1); inRow.Position = UDim2.new(0, 10, 1, -10)
+                inRow.Size = UDim2.new(1, -20, 0, 38); inRow.BackgroundColor3 = T.field; inRow.BorderSizePixel = 0; inRow.Parent = chat
+                corner(inRow, 10); stroke(inRow, T.border, 0, 1)
+                local box = Instance.new("TextBox"); box.BackgroundTransparency = 1; box.Position = UDim2.new(0, 12, 0, 0)
+                box.Size = UDim2.new(1, -56, 1, 0); box.Text = ""; box.PlaceholderText = "Escreva uma mensagem..."
+                box.PlaceholderColor3 = T.muted; box.TextColor3 = T.white; box.Font = Enum.Font.Gotham; box.TextSize = 12
+                box.TextXAlignment = Enum.TextXAlignment.Left; box.ClearTextOnFocus = false; box.Parent = inRow
+                local send = Instance.new("TextButton"); send.AnchorPoint = Vector2.new(1, .5); send.Position = UDim2.new(1, -5, .5, 0)
+                send.Size = UDim2.new(0, 30, 0, 28); send.BackgroundColor3 = GRAY; send.Text = ""; send.AutoButtonColor = false
+                send.BorderSizePixel = 0; send.Parent = inRow; corner(send, 8)
+                local sic, sglyph
+                local simg = ""
+                for _, n in ipairs({"arrow-up", "move-up", "chevron-up"}) do local i0 = icon(n); if i0 ~= "" then simg = i0; break end end
+                if simg ~= "" then
+                    sic = Instance.new("ImageLabel"); sic.AnchorPoint = Vector2.new(.5, .5); sic.Position = UDim2.new(.5, 0, .5, 0)
+                    sic.Size = UDim2.new(0, 14, 0, 14); sic.BackgroundTransparency = 1; sic.Image = simg; sic.ImageColor3 = GRAY_IC; sic.Parent = send
+                else
+                    sglyph = label(send, "↑", 16, GRAY_IC, Enum.Font.GothamBold); sglyph.Size = UDim2.new(1, 0, 1, 0); sglyph.TextXAlignment = Enum.TextXAlignment.Center
+                end
+                local busy = false
+                local spin = Instance.new("Frame"); spin.AnchorPoint = Vector2.new(.5, .5); spin.Position = UDim2.new(.5, 0, .5, 0)
+                spin.Size = UDim2.new(0, 18, 0, 6); spin.BackgroundTransparency = 1; spin.Visible = false; spin.Parent = send
+                local dots = {}
+                for i = 1, 3 do
+                    local d = Instance.new("Frame"); d.Size = UDim2.new(0, 4, 0, 4); d.Position = UDim2.new(0, (i - 1) * 7, .5, -2)
+                    d.BackgroundColor3 = T.darkText; d.BorderSizePixel = 0; d.Parent = spin; corner(d, 4); dots[i] = d
+                end
+                local function hasText() return box.Text:gsub("%s", "") ~= "" end
+                local function refresh()
+                    local on = hasText() and not busy
+                    if sic then sic.Visible = not busy end
+                    if sglyph then sglyph.Visible = not busy end
+                    if busy and not spin.Visible then
+                        spin.Visible = true
+                        task.spawn(function()
+                            local t0 = os.clock()
+                            while busy and spin.Parent do
+                                local t = os.clock() - t0
+                                for i, d in ipairs(dots) do d.BackgroundTransparency = .75 - .75 * math.max(0, math.sin(t * 7 - i * .9)) end
+                                task.wait(1 / 30)
+                            end
+                            spin.Visible = false
+                        end)
+                    end
+                    TweenService:Create(send, TweenInfo.new(.15), {BackgroundColor3 = (on or busy) and Color3.new(1, 1, 1) or GRAY}):Play()
+                    local fg = (on or busy) and T.darkText or GRAY_IC
+                    if sic then sic.ImageColor3 = fg end
+                    if sglyph then sglyph.TextColor3 = fg end
+                end
+                box:GetPropertyChangedSignal("Text"):Connect(refresh)
+
+                local history = {}
+                for i = math.max(1, #log - 7), #log do
+                    local m = log[i]
+                    if type(m) == "table" and type(m.t) == "string" then history[#history + 1] = {role = m.u and "user" or "assistant", content = m.t} end
+                end
+                local reqId, curUser, curWait = 0, nil, nil
+                local function cancel()
+                    if not busy then return end
+                    reqId = reqId + 1
+                    for _, tl in ipairs({curUser, curWait}) do
+                        if tl and tl.Parent and tl.Parent.Parent then pcall(function() tl.Parent.Parent:Destroy() end) end
+                    end
+                    curUser, curWait = nil, nil
+                    busy = false; refresh()
+                end
+                local function submit()
+                    if busy or not hasText() then return end
+                    local q = box.Text:gsub("^%s+", ""):gsub("%s+$", "")
+                    if #q > 400 then q = q:sub(1, 400) end
+                    box.Text = ""; busy = true; refresh()
+                    local userTl = addMsg(q, true)
+                    local wait = addMsg("Escrevendo...", false)
+                    reqId = reqId + 1; local myId = reqId
+                    curUser, curWait = userTl, wait
+                    task.spawn(function()
+                        local ans, err
+                        if type(ask) == "function" then
+                            local okc, a, e = pcall(ask, q, history)
+                            if okc then ans, err = a, e else err = tostring(a) end
+                        else err = "Suporte indisponível." end
+                        if myId ~= reqId or not wait.Parent then return end
+                        curUser, curWait = nil, nil
+                        if type(ans) == "string" and ans:match("%S") then
+                            wait.Text = ans
+                            history[#history + 1] = {role = "user", content = q}
+                            history[#history + 1] = {role = "assistant", content = ans}
+                            log[#log + 1] = {t = q, u = true}; log[#log + 1] = {t = ans, u = false}; persist()
+                            while #history > 8 do table.remove(history, 1) end
+                        else
+                            wait.Text = "Não foi possível responder no momento. Por favor, tente novamente em instantes."
+                        end
+                        task.defer(function() if scroll.Parent then scroll.CanvasPosition = Vector2.new(0, 1e6) end end)
+                        busy = false; refresh()
+                    end)
+                end
+                send.Activated:Connect(function() if busy then cancel() else submit() end end)
+                -- foco ao clicar (so com borda branca, igual ao sino/minimizar/fechar): apenas na seta com texto ou no carregando
+                send.InputBegan:Connect(function(io)
+                    if io.UserInputType ~= Enum.UserInputType.MouseButton1 and io.UserInputType ~= Enum.UserInputType.Touch then return end
+                    if not (busy or hasText()) then return end
+                    local ring = Instance.new("Frame"); ring.Size = UDim2.new(1, 6, 1, 6); ring.AnchorPoint = Vector2.new(.5, .5)
+                    ring.Position = UDim2.new(.5, 0, .5, 0); ring.BackgroundTransparency = 1; ring.BorderSizePixel = 0; ring.ZIndex = 50
+                    ring.Active = false; ring.Parent = send; corner(ring, 10)
+                    local rs = Instance.new("UIStroke"); rs.Color = Color3.new(1, 1, 1); rs.Thickness = 1.5; rs.Transparency = 0
+                    rs.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; rs.Parent = ring
+                    local done = false
+                    local function release()
+                        if done then return end; done = true
+                        local tw = TweenService:Create(rs, TweenInfo.new(.2), {Transparency = 1})
+                        tw.Completed:Connect(function() pcall(function() ring:Destroy() end) end); tw:Play()
+                    end
+                    io.Changed:Connect(function() if io.UserInputState == Enum.UserInputState.End then release() end end)
+                    task.delay(.6, release)
+                end)
+                box.FocusLost:Connect(function(enter) if enter then submit() end end)
+            end
+            end
+            local page = dash -- todo o conteudo antigo do Home agora vive na sub-aba Dashboard
+            local LP = Players.LocalPlayer
+            local RS = game:GetService("RunService")
+            local conns, rotG, sheens = {}, {}, {}
+            local function fmt(s)
+                s = math.max(0, math.floor(s))
+                return string.format("%02d:%02d:%02d", math.floor(s / 3600), math.floor(s / 60) % 60, s % 60)
+            end
+            local function frame(parent, size, pos, bg, order)
+                local f = Instance.new("Frame")
+                f.Size = size; f.Position = pos or UDim2.new(); f.BackgroundColor3 = bg or T.panel
+                f.BorderSizePixel = 0; f.LayoutOrder = order or 0; f.Parent = parent
+                return f
+            end
+            local function arcStroke(parent, thick)
+                local s = Instance.new("UIStroke")
+                s.Thickness = math.max(1, (thick or 2) * .55); s.Color = Color3.fromRGB(190, 190, 202); s.Transparency = 0; s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; s.Parent = parent
+                local g = Instance.new("UIGradient")
+                g.Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, .62), NumberSequenceKeypoint.new(.35, .62), NumberSequenceKeypoint.new(.5, .05),
+                    NumberSequenceKeypoint.new(.65, .62), NumberSequenceKeypoint.new(1, .62)})
+                g.Parent = s; rotG[#rotG + 1] = g
+                return s
+            end
+            local function sheen(obj)
+                local g = Instance.new("UIGradient")
+                g.Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, Color3.fromRGB(140, 140, 155)),
+                    ColorSequenceKeypoint.new(.5, Color3.fromRGB(255, 255, 255)),
+                    ColorSequenceKeypoint.new(1, Color3.fromRGB(140, 140, 155))})
+                g.Parent = obj; sheens[#sheens + 1] = g
+            end
+            local function hover(card)
+                local sc = Instance.new("UIScale"); sc.Parent = card
+                local ti = TweenInfo.new(.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+                card.MouseEnter:Connect(function() TweenService:Create(sc, ti, {Scale = 1.02}):Play() end)
+                card.MouseLeave:Connect(function() TweenService:Create(sc, ti, {Scale = 1}):Play() end)
+            end
+
+            -- efeito prateado + contorno nas sub-abas e no card do Youtube
+            pcall(function()
+                arcStroke(SUB.bar, 1.5); arcStroke(SUB.slider, 1.5); 
+                
+            end)
+
+            -- ===== HERO =====
+            local hero = frame(page, UDim2.new(1, 0, 0, 128), nil, Color3.fromRGB(22, 22, 27), 1)
+            corner(hero, 14); hero.ClipsDescendants = true
+            arcStroke(hero, 2)
+            local bgG = Instance.new("UIGradient")
+            bgG.Color = ColorSequence.new(Color3.fromRGB(40, 40, 47), Color3.fromRGB(20, 20, 24)); bgG.Rotation = 30; bgG.Parent = hero
+            rotG[#rotG + 1] = bgG
+            local parts = {}
+            for i = 1, 8 do
+                local p = frame(hero, UDim2.new(0, math.random(2, 4), 0, math.random(2, 4)), UDim2.new(math.random(), 0, math.random(), 0), Color3.new(1, 1, 1))
+                corner(p, 4); p.BackgroundTransparency = .5 + math.random() * .4
+                parts[i] = {f = p, x = math.random(), y = math.random(), s = .02 + math.random() * .06}
+            end
+            local sweep = frame(hero, UDim2.new(1, 0, 1, 0), UDim2.new(), Color3.new(1, 1, 1))
+            sweep.BackgroundTransparency = 0; corner(sweep, 14)
+            local sg = Instance.new("UIGradient"); sg.Rotation = 20
+            sg.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(.4, 1), NumberSequenceKeypoint.new(.5, .96), NumberSequenceKeypoint.new(.6, 1), NumberSequenceKeypoint.new(1, 1)}); sg.Parent = sweep
+
+            local ring = frame(hero, UDim2.new(0, 92, 0, 92), UDim2.new(0, 18, .5, -46), Color3.fromRGB(15, 15, 19))
+            corner(ring, 46); arcStroke(ring, 3)
+            local av = Instance.new("ImageLabel")
+            av.Size = UDim2.new(1, -10, 1, -10); av.Position = UDim2.new(0, 5, 0, 5); av.BackgroundColor3 = T.panel
+            av.BorderSizePixel = 0; av.Parent = ring; corner(av, 46)
+            task.spawn(function()
+                pcall(function()
+                    av.Image = Players:GetUserThumbnailAsync(LP.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
+                end)
+            end)
+            local dn = label(hero, LP.DisplayName, 26, T.white, Enum.Font.GothamBold)
+            dn.Position = UDim2.new(0, 124, 0, 26); dn.Size = UDim2.new(1, -140, 0, 32); dn.TextTruncate = Enum.TextTruncate.AtEnd
+            sheen(dn)
+            local qt = label(hero, "", 10, T.muted, Enum.Font.GothamMedium)
+            qt.Position = UDim2.new(0, 124, 0, 6); qt.Size = UDim2.new(1, -140, 0, 18); qt.TextTruncate = Enum.TextTruncate.AtEnd
+            qt.TextTransparency = 1
+            task.spawn(function()
+                local day = os.date("%Y-%m-%d")
+                local q
+                pcall(function()
+                    if _G.__OrionSecGet("__quoteDay") == day then q = _G.__OrionSecGet("__quoteTxt") end
+                end)
+                if (not q or q == "") and type(cfg.QuoteFn) == "function" then
+                    local ok, r = pcall(cfg.QuoteFn, day)
+                    if ok and type(r) == "string" then
+                        r = r:gsub("[\r\n]+", " "):gsub('^%s*["“]+', ""):gsub('["”]+%s*$', ""):gsub("^%s+", ""):gsub("%s+$", "")
+                        if #r > 3 and #r < 140 then
+                            q = r
+                            pcall(function() _G.__OrionSecSet("__quoteDay", day); _G.__OrionSecSet("__quoteTxt", q) end)
+                        end
+                    end
+                end
+                if q then
+                    local out = {}
+                    pcall(function()
+                        for _, cp in utf8.codes(q) do
+                            if cp <= 0x24F or (cp >= 0x2010 and cp <= 0x2027) then out[#out + 1] = utf8.char(cp) end
+                        end
+                        q = table.concat(out):gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+                    end)
+                    if #q < 4 then q = nil end
+                end
+                q = q or "Cada dia é uma nova chance de evoluir."
+                qt.Text = q
+                TweenService:Create(qt, TweenInfo.new(.6), {TextTransparency = .15}):Play()
+            end)
+            local un = label(hero, "@" .. LP.Name, 14, T.muted, Enum.Font.GothamMedium)
+            un.Position = UDim2.new(0, 124, 0, 58); un.Size = UDim2.new(1, -140, 0, 20); un.TextTruncate = Enum.TextTruncate.AtEnd
+            OrionLib.BindNameLabel(un, "@", 10)
+            OrionLib.BindNameLabel(dn, nil, 10)
+            dn.Size = UDim2.new(1, -180, 0, 32); qt.Size = UDim2.new(1, -196, 0, 18); qt.Position = UDim2.new(0, 140, 0, 6)
+            do -- icone de IA no comeco da frase do dia
+                local img = ""
+                for _, n in ipairs({"sparkles", "bot", "wand-sparkles"}) do local ic0 = icon(n); if ic0 ~= "" then img = ic0; break end end
+                local ai = Instance.new("ImageLabel"); ai.Name = "AIQuoteIcon"; ai.Size = UDim2.new(0, 13, 0, 13)
+                ai.Position = UDim2.new(0, 124, 0, 9); ai.BackgroundTransparency = 1; ai.Image = img; ai.ImageColor3 = T.silver
+                ai.Visible = img ~= ""; ai.Parent = hero
+                if img == "" then qt.Position = UDim2.new(0, 124, 0, 6) end
+            end
+            do -- olho: oculta/mostra o nome do jogador (Home e sidebar)
+                local eb = Instance.new("TextButton"); eb.Name = "HideNameBtn"; eb.Text = ""; eb.AutoButtonColor = false
+                eb.Size = UDim2.new(0, 28, 0, 28); eb.AnchorPoint = Vector2.new(1, 0); eb.Position = UDim2.new(1, -10, 0, 10)
+                eb.BackgroundColor3 = T.panel; eb.BorderSizePixel = 0; eb.ZIndex = 6; eb.Parent = hero
+                corner(eb, 8); stroke(eb, T.border, 0, 1)
+                local ei = Instance.new("ImageLabel"); ei.Size = UDim2.new(0, 16, 0, 16); ei.AnchorPoint = Vector2.new(.5, .5)
+                ei.Position = UDim2.new(.5, 0, .5, 0); ei.BackgroundTransparency = 1; ei.ImageColor3 = T.silver; ei.ZIndex = 7; ei.Parent = eb
+                local function skin(h)
+                    local img = icon(h and "eye-off" or "eye")
+                    ei.Image = img
+                    if img == "" then eb.Text = h and "x" or "o"; eb.Font = Enum.Font.GothamBold; eb.TextSize = 14; eb.TextColor3 = T.silver end
+                end
+                table.insert(OrionLib._nameCbs, skin); skin(OrionLib.HideName)
+                bindTap(eb, function() OrionLib.SetHideName(not OrionLib.HideName) end)
+            end
+            local dot = frame(ring, UDim2.new(0, 16, 0, 16), UDim2.new(1, -22, 1, -22), Color3.fromRGB(90, 255, 160)); corner(dot, 8); dot.ZIndex = 5
+            do local ds = Instance.new("UIStroke"); ds.Color = Color3.fromRGB(22, 22, 27); ds.Thickness = 2.5; ds.Parent = dot end
+            local chip = frame(hero, UDim2.new(1, -142, 0, 38), UDim2.new(0, 124, 0, 82), Color3.fromRGB(15, 15, 19))
+            corner(chip, 10); arcStroke(chip, 1.5); chip.ClipsDescendants = true
+            local chShine = frame(chip, UDim2.new(1, 0, 1, 0), UDim2.new(), Color3.new(1, 1, 1)); corner(chShine, 10)
+            local chG = Instance.new("UIGradient"); chG.Rotation = 20
+            chG.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(.4, 1), NumberSequenceKeypoint.new(.5, .88), NumberSequenceKeypoint.new(.6, 1), NumberSequenceKeypoint.new(1, 1)}); chG.Parent = chShine
+            local chTrack = frame(chip, UDim2.new(1, -24, 0, 3), UDim2.new(0, 12, 1, -8), Color3.fromRGB(34, 34, 40)); corner(chTrack, 2)
+            local chBar = frame(chTrack, UDim2.new(0, 0, 1, 0), UDim2.new(), Color3.new(1, 1, 1)); corner(chBar, 2)
+            do local g = Instance.new("UIGradient"); g.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, .8), NumberSequenceKeypoint.new(1, 0)}); g.Parent = chBar end
+            local chDot = frame(chip, UDim2.new(0, 7, 0, 7), UDim2.new(1, -17, 0, 12), Color3.fromRGB(90, 255, 160)); corner(chDot, 4)
+            local chTag = label(chip, "TEMPO DE SEÇÃO", 10, T.muted, Enum.Font.GothamBold)
+            chTag.Position = UDim2.new(0, 12, 0, 0); chTag.Size = UDim2.new(0, 96, 0, 30)
+            local chSep = frame(chip, UDim2.new(0, 1, 0, 16), UDim2.new(0, 110, 0, 7), T.border)
+            local st = label(chip, "00:00:00", 15, T.white, Enum.Font.GothamBold)
+            st.Position = UDim2.new(0, 120, 0, 0); st.Size = UDim2.new(1, -140, 0, 30); sheen(st)
+
+            -- ===== STATS =====
+            local row = frame(page, UDim2.new(1, 0, 0, 84), nil, T.bg, 2); row.BackgroundTransparency = 1
+            local function statCard(i, title, ico)
+                local c = frame(row, UDim2.new(1 / 3, -8, 1, 0), UDim2.new((i - 1) / 3, (i - 1) * 4, 0, 0), Color3.fromRGB(24, 24, 29))
+                corner(c, 12); arcStroke(c, 1.5)
+                local t = label(c, title, 11, T.muted, Enum.Font.GothamMedium)
+                t.Position = UDim2.new(0, 12, 0, 8); t.Size = UDim2.new(1, -24, 0, 16)
+                local v = label(c, "--", 24, T.white, Enum.Font.GothamBold)
+                v.Position = UDim2.new(0, 12, 0, 30); v.Size = UDim2.new(1, -24, 0, 34); sheen(v)
+                v.TextTruncate = Enum.TextTruncate.AtEnd
+                return v
+            end
+            local fpsV = statCard(1, "FPS")
+            local pingV = statCard(2, "PING")
+            local sesV = statCard(3, "EXECUÇÕES")
+            do
+                local n = 0
+                pcall(function() n = tonumber(_G.__OrionSecGet("__execCount")) or 0 end)
+                n = n + 1
+                pcall(function() _G.__OrionSecSet("__execCount", n) end)
+                sesV.Text = tostring(n)
+            end
+
+            -- ===== EXECUTOR =====
+            -- {chave, site, key(true/false/"paid"), {características}}
+            -- fast=rápido  simple=simples  safe=seguro  mobile=celular  premium=pago
+            local EXE = {
+                {"delta", "deltaexploits.gg", true, {"mobile", "simple", "safe"}},
+                {"fluxus", "fluxus.team", true, {"simple", "safe"}},
+                {"krnl", "krnl.cat", true, {"mobile", "fast"}},
+                {"arceus", "spdmteam.com", true, {"mobile", "simple"}},
+                {"hydrogen", "hydrogen.lat", true, {"mobile", "simple"}},
+                {"codex", "codex.lol", true, {"mobile", "fast", "simple"}},
+                {"wave", "getwave.gg", true, {"fast", "safe"}},
+                {"volcano", "volcano.wtf", true, {"fast", "simple"}},
+                {"velocity", "getvelocity.lol", true, {"fast", "simple"}},
+                {"swift", "getswift.xyz", true, {"fast", "safe"}},
+                {"cryptic", "getcryptic.net", true, {"mobile", "fast"}},
+                {"xeno", "xeno.now", false, {"fast", "simple", "safe"}},
+                {"solara", "getsolara.dev", false, {"simple", "safe"}},
+                {"bunni", "bunni.fun", false, {"fast", "simple"}},
+                {"seliware", "seliware.com", false, {"fast"}},
+                {"potassium", "potassium.pro", false, {"fast", "simple"}},
+                {"synapse", "synapse.do", "paid", {"safe", "premium"}},
+                {"script-ware", "script-ware.com", "paid", {"safe", "premium"}},
+                {"sirhurt", "sirhurt.net", "paid", {"fast", "premium"}},
+                {"awp", "awp.gg", "paid", {"fast", "premium"}},
+                {"macsploit", "macsploit.com", "paid", {"safe", "premium"}},
+            }
+            -- lista de executores (dados do rscripts.net/executors, 31/10/2026): {nome, slug, sUNC, preco, plataforma, status, chave, dominio}
+            local EXL = {
+                {"Volt", "volt", 100, "$5.99/wk", "Windows", "working", nil, nil, "logo_1771164194166_eq2kzcwm.webp", "thumb_1771164199216_4NwW4gHA.webp"},
+                {"Potassium", "potassium", 100, "$22.99 lifetime", "Windows", "working", nil, "potassium.pro", "1753031129605_YugmbXMfSG.webp", "thumb_1771164977294_1429hufQ.webp"},
+                {"Wave", "wave", 100, "$4.99/wk", "Windows", "working", nil, "getwave.gg", "WaveLogo.webp", "thumb_1771163508160_SDjKycmb.webp"},
+                {"Matcha", "matcha", nil, "$9.99 lifetime", "Windows", "working", nil, nil, "logo_1791495941030_1Jn61VF9.webp", "thumb_1791495945874_S7VoFkUw.webp"},
+                {"OpiumWare", "opiumware", 100, "Free", "Mac", "working", "keyless", nil, "logo_1777507660667_kTXmLGRq.webp", "thumb_1777507662817_TgJqKiRF.webp"},
+                {"Real", "real", 100, "Free", "Windows", "working", "key", nil, "logo_1783722468799_WNCyjZ9x.webp", "thumb_1783722436875_htZh2WAc.webp"},
+                {"Synapse Z", "synapsez", 98, "$3.99/wk", "Windows", "outdated", nil, nil, "SynapsezLogo.webp", "thumb_1772999654705_88kHipZx.webp"},
+                {"Delta", "delta", 98, "Free", "Android", "outdated", "key", "deltaexploits.gg", "DeltaLogo.png", "DeltaThumbnail1.png"},
+                {"Codex", "codex", nil, "Free", "Android", "unknown", nil, "codex.lol", "CodexLogo.jpg", "CodexThumbnail1.jpg"},
+                {"Seliware", "seliware", nil, "$9.99", "Windows", "unknown", nil, "seliware.com", "1760048695891_OlNWTHsSSM.webp", "1760048817433_qeXsv0xO39.webp"},
+            }
+            local function exFeats(e) -- caracteristicas: fast=rapido simple=simples safe=seguro mobile=celular premium=pago
+                local f = {}
+                if (e[3] or 0) >= 100 then f[#f + 1] = "fast" end
+                if e[6] == "working" then f[#f + 1] = "safe" end
+                if e[5] == "Android" or e[5] == "iOS" then f[#f + 1] = "mobile" end
+                if e[4] ~= "Free" then f[#f + 1] = "premium" elseif e[7] ~= "key" then f[#f + 1] = "simple" end
+                return f
+            end
+            local exName, exVer = nil, nil
+            pcall(function() if identifyexecutor then exName, exVer = identifyexecutor() end end)
+            if not exName then pcall(function() if getexecutorname then exName = getexecutorname() end end) end
+            exName = tostring(exName or "Desconhecido")
+            local exInfo
+            for _, e in ipairs(EXE) do if string.find(string.lower(exName), e[1], 1, true) then exInfo = e; break end end
+            local exRow
+            for _, e in ipairs(EXL) do
+                local ln = string.lower(exName)
+                if string.find(ln, string.lower(e[1]), 1, true) or string.find(ln, e[2], 1, true) then exRow = e; break end
+            end
+            if exRow and not exInfo then exInfo = {exRow[2], exRow[8], exRow[7] == "key", exFeats(exRow)} end
+            local exWrap = Instance.new("Frame"); exWrap.BackgroundTransparency = 1; exWrap.BorderSizePixel = 0
+            exWrap.BackgroundTransparency = 0; exWrap.BackgroundColor3 = Color3.fromRGB(23, 23, 28); exWrap.ClipsDescendants = true
+            corner(exWrap, 14); arcStroke(exWrap, 1.6)
+            exWrap.AutomaticSize = Enum.AutomaticSize.Y; exWrap.Size = UDim2.new(1, 0, 0, 0); exWrap.LayoutOrder = 3; exWrap.Parent = page
+            do local wl = Instance.new("UIListLayout"); wl.Padding = UDim.new(0, 0); wl.SortOrder = Enum.SortOrder.LayoutOrder; wl.Parent = exWrap end
+            local exc = frame(exWrap, UDim2.new(1, 0, 0, 76), nil, Color3.fromRGB(23, 23, 28), 1)
+            exc.BackgroundTransparency = 1; exc.ClipsDescendants = true
+            local exF = frame(exc, UDim2.new(1, 0, 1, 0), UDim2.new(), Color3.new(1, 1, 1)); corner(exF, 14)
+            local exG = Instance.new("UIGradient"); exG.Rotation = 20
+            exG.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(.4, 1), NumberSequenceKeypoint.new(.5, .9), NumberSequenceKeypoint.new(.6, 1), NumberSequenceKeypoint.new(1, 1)}); exG.Parent = exF
+            local exIco = Instance.new("ImageLabel")
+            exIco.Size = UDim2.new(0, 48, 0, 48); exIco.Position = UDim2.new(0, 14, .5, -24); exIco.BackgroundColor3 = Color3.fromRGB(15, 15, 19)
+            exIco.BorderSizePixel = 0; exIco.ScaleType = Enum.ScaleType.Fit; exIco.Parent = exc; corner(exIco, 12); stroke(exIco, T.border, .3, 1); arcStroke(exIco, 1.2)
+            local exLet = label(exIco, string.upper(string.sub(exName, 1, 1)), 22, T.white, Enum.Font.GothamBold)
+            exLet.Size = UDim2.new(1, 0, 1, 0); exLet.TextXAlignment = Enum.TextXAlignment.Center
+            local exTag = label(exc, "EXECUTOR", 11, T.muted, Enum.Font.GothamMedium)
+            exTag.Position = UDim2.new(0, 74, 0, 14); exTag.Size = UDim2.new(1, -210, 0, 14)
+            local exNm = label(exc, exName, 20, T.white, Enum.Font.GothamBold)
+            exNm.Position = UDim2.new(0, 74, 0, 30); exNm.Size = UDim2.new(1, -210, 0, 26); exNm.TextTruncate = Enum.TextTruncate.AtEnd; sheen(exNm)
+            do
+                local FEAT = {
+                    key = {"key", {"key"}, Color3.fromRGB(255, 208, 60)},
+                    fast = {"zap", {"zap", "gauge"}}, simple = {"sparkles", {"sparkles", "mouse-pointer-click", "smile"}},
+                    safe = {"shield-check", {"shield-check", "shield"}}, mobile = {"smartphone", {"smartphone", "tablet-smartphone"}},
+                    premium = {"crown", {"crown", "star"}},
+                }
+                local list = {}
+                                                local n = 0
+                for _, f in ipairs(list) do
+                    local def = FEAT[f]
+                    local img
+                    if def then for _, nm in ipairs(def[2]) do local ic = icon(nm); if ic ~= "" then img = ic; break end end end
+                    if img and n < 4 then
+                        local isKey = (f == "key")
+                        local kt = frame(exc, UDim2.new(0, 30, 0, 30), UDim2.new(1, -86 - n * 34, .5, -15), Color3.fromRGB(20, 20, 25))
+                        corner(kt, 8); arcStroke(kt, 1.2); stroke(kt, T.border, .2, 1)
+                        local im = Instance.new("ImageLabel"); im.Size = UDim2.new(0, 16, 0, 16); im.AnchorPoint = Vector2.new(.5, .5)
+                        im.Position = UDim2.new(.5, 0, .5, 0); im.BackgroundTransparency = 1; im.Image = img
+                        im.ImageColor3 = T.silver; im.Parent = kt
+                        n = n + 1
+                    end
+                end
+                local w = -(124 + n * 34)
+                exTag.Size = UDim2.new(1, w, 0, 14); exNm.Size = UDim2.new(1, w, 0, 26)
+            end
+            -- botao de abrir + card com todos os executores
+            local exList
+            do
+                local arrowBtn = Instance.new("TextButton")
+                arrowBtn.Size = UDim2.new(0, 34, 0, 34); arrowBtn.Position = UDim2.new(1, -48, .5, -17); arrowBtn.BackgroundColor3 = T.panel
+                arrowBtn.Text = ""; arrowBtn.AutoButtonColor = false; arrowBtn.BorderSizePixel = 0; arrowBtn.ZIndex = 5; arrowBtn.Parent = exc
+                corner(arrowBtn, 9); stroke(arrowBtn, T.border, 0, 1)
+                local ai = Instance.new("ImageLabel"); ai.Size = UDim2.new(0, 20, 0, 20); ai.AnchorPoint = Vector2.new(.5, .5)
+                ai.Position = UDim2.new(.5, 0, .5, 0); ai.BackgroundTransparency = 1; ai.Image = icon("chevron-down"); ai.ImageColor3 = T.silver; ai.ZIndex = 6; ai.Parent = arrowBtn
+
+                exList = frame(exWrap, UDim2.new(1, 0, 0, 0), nil, Color3.fromRGB(23, 23, 28), 2)
+                exList.AutomaticSize = Enum.AutomaticSize.Y; exList.Visible = false
+                exList.BackgroundTransparency = 1
+                do -- divisor fino entre o executor atual e a lista (so aparece aberto)
+                    local sep = Instance.new("Frame"); sep.Size = UDim2.new(1, -28, 0, 1); sep.Position = UDim2.new(0, 14, 1, -1)
+                    sep.BackgroundColor3 = T.border; sep.BackgroundTransparency = .35; sep.BorderSizePixel = 0; sep.Visible = exList.Visible; sep.ZIndex = 5; sep.Parent = exc
+                    exList:GetPropertyChangedSignal("Visible"):Connect(function() sep.Visible = exList.Visible end)
+                end
+                local lp = Instance.new("UIPadding"); lp.PaddingTop = UDim.new(0, 10); lp.PaddingBottom = UDim.new(0, 10)
+                lp.PaddingLeft = UDim.new(0, 10); lp.PaddingRight = UDim.new(0, 10); lp.Parent = exList
+                local ll = Instance.new("UIListLayout"); ll.Padding = UDim.new(0, 8); ll.SortOrder = Enum.SortOrder.LayoutOrder; ll.Parent = exList
+
+                local FEATI = {
+                    fast = {"zap", "gauge"}, simple = {"sparkles", "smile"}, safe = {"shield-check", "shield"},
+                    mobile = {"smartphone", "tablet-smartphone"}, premium = {"crown", "star"},
+                }
+                local STC = {working = Color3.fromRGB(46, 204, 113), outdated = Color3.fromRGB(225, 82, 82), unknown = Color3.fromRGB(140, 140, 150)}
+                local STT = {working = "Online", outdated = "Offline", unknown = "Inactive"}
+                local order = {}
+                for _, e in ipairs(EXL) do order[#order + 1] = e end
+                table.sort(order, function(a, b) return (a == exRow and 1 or 0) > (b == exRow and 1 or 0) end)
+                local GREEN2, RED2 = Color3.fromRGB(46, 204, 113), Color3.fromRGB(225, 82, 82)
+                local function loadImg(target, letter, files, onFail)
+                    local urls = {}
+                    for _, f in ipairs(files) do
+                        if f then
+                            urls[#urls + 1] = "https://rscripts.net/api/assets/executors/" .. f
+                            urls[#urls + 1] = "https://rscripts.net/_next/image?url=" .. HttpService:UrlEncode("/api/assets/executors/" .. f) .. "&w=640&q=75"
+                        end
+                    end
+                    local i = 0
+                    local function try()
+                        i = i + 1
+                        if not urls[i] then if onFail then onFail() end return end
+                        resolveImage(urls[i], function(r)
+                            if not target.Parent then return end
+                            if r and r ~= "" then
+                                target.Image = r; target.ImageColor3 = Color3.new(1, 1, 1)
+                                if letter then letter.Visible = false end
+                            else try() end
+                        end)
+                    end
+                    try()
+                end
+                for idx, e in ipairs(order) do
+                    local cur = (e == exRow)
+                    local row = frame(exList, UDim2.new(1, 0, 0, 114), nil, Color3.fromRGB(18, 18, 22), idx)
+                    corner(row, 12); local exStroke = stroke(row, cur and T.silver or T.border, cur and .1 or .3, 1); row.ClipsDescendants = true
+                    do -- mesmo efeito dos cards de Scripts: fundo e borda clareiam ao passar/pressionar
+                        local hiT = TweenInfo.new(.15)
+                        local function exHi(on)
+                            TweenService:Create(row, hiT, {BackgroundColor3 = on and T.panelHover or Color3.fromRGB(18, 18, 22)}):Play()
+                            TweenService:Create(exStroke, hiT, {Color = on and T.silver2 or (cur and T.silver or T.border), Transparency = on and .05 or (cur and .1 or .3)}):Play()
+                        end
+                        row.MouseEnter:Connect(function() exHi(true) end)
+                        row.MouseLeave:Connect(function() exHi(false) end)
+                        UserInputService.InputEnded:Connect(function(io) if io.UserInputType == Enum.UserInputType.Touch then task.delay(.08, function() exHi(false) end) end end)
+                    end
+                    -- thumbnail grande (estilo YouTube)
+                    local th = Instance.new("ImageLabel"); th.Size = UDim2.new(0, 150, 0, 94); th.Position = UDim2.new(0, 8, 0, 10)
+                    th.BackgroundColor3 = Color3.fromRGB(14, 14, 18); th.BorderSizePixel = 0; th.ScaleType = Enum.ScaleType.Fit; th.Parent = row
+                    local thLet = label(th, string.upper(string.sub(e[1], 1, 1)), 34, T.muted, Enum.Font.GothamBold)
+                    thLet.Size = UDim2.new(1, 0, 1, 0); thLet.TextXAlignment = Enum.TextXAlignment.Center
+                    loadImg(th, thLet, {e[10]}, nil)
+                    -- logotipo (avatar redondo)
+                    local lg = Instance.new("ImageLabel"); lg.Size = UDim2.new(0, 26, 0, 26); lg.Position = UDim2.new(0, 170, 0, 9)
+                    lg.BackgroundColor3 = Color3.fromRGB(15, 15, 19); lg.BorderSizePixel = 0; lg.ScaleType = Enum.ScaleType.Crop; lg.Parent = row
+                    corner(lg, 13); stroke(lg, T.border, .2, 1)
+                    local lgLet = label(lg, string.upper(string.sub(e[1], 1, 1)), 13, T.white, Enum.Font.GothamBold)
+                    lgLet.Size = UDim2.new(1, 0, 1, 0); lgLet.TextXAlignment = Enum.TextXAlignment.Center
+                    loadImg(lg, lgLet, {e[9]}, function()
+                        if cur and lg.Parent then
+                            task.spawn(function()
+                                for _ = 1, 20 do
+                                    if exIco.Image ~= "" then lg.Image = exIco.Image; lgLet.Visible = false; return end
+                                    task.wait(.5)
+                                end
+                            end)
+                        end
+                    end)
+                    local dotc = frame(row, UDim2.new(0, 9, 0, 9), UDim2.new(0, 187, 0, 26), STC[e[6]] or STC.unknown); corner(dotc, 5); dotc.ZIndex = 3
+                    do local ds = Instance.new("UIStroke"); ds.Color = Color3.fromRGB(18, 18, 22); ds.Thickness = 2; ds.Parent = dotc end
+                    if cur then
+                        local pill = frame(row, UDim2.new(0, 58, 0, 18), UDim2.new(0, 14, 0, 16), Color3.fromRGB(46, 204, 113)); corner(pill, 9); pill.ZIndex = 3
+                        local pl = label(pill, "Em uso", 10, T.darkText, Enum.Font.GothamBold)
+                        pl.Size = UDim2.new(1, 0, 1, 0); pl.TextXAlignment = Enum.TextXAlignment.Center; pl.ZIndex = 4
+                    end
+                    local nm = label(row, e[1], 15, T.white, Enum.Font.GothamBold)
+                    nm.Position = UDim2.new(0, 204, 0, 12); nm.Size = UDim2.new(1, -214, 0, 20); nm.TextTruncate = Enum.TextTruncate.AtEnd
+                    -- chips arredondados e coloridos: status, sUNC, plataforma e preco
+                    local function chip(parent, txt, col, order, dot)
+                        local c = Instance.new("Frame"); c.Size = UDim2.new(0.5, -4, 0, 24)
+                        c.BackgroundColor3 = col; c.BackgroundTransparency = .8; c.BorderSizePixel = 0; c.LayoutOrder = order; c.Parent = parent
+                        corner(c, 5); stroke(c, col, .3, 1)
+                        if dot then
+                            local d = Instance.new("Frame"); d.Size = UDim2.new(0, 7, 0, 7); d.Position = UDim2.new(0, 8, .5, -3)
+                            d.BackgroundColor3 = col; d.BorderSizePixel = 0; d.Parent = c; corner(d, 4)
+                        end
+                        local lb = Instance.new("TextLabel"); lb.BackgroundTransparency = 1; lb.Text = txt; lb.Font = Enum.Font.GothamBold
+                        lb.TextSize = 11; lb.TextColor3 = col; lb.TextTruncate = Enum.TextTruncate.AtEnd
+                        lb.Position = UDim2.new(0, dot and 20 or 6, 0, 0); lb.Size = UDim2.new(1, dot and -24 or -12, 1, 0)
+                        lb.TextXAlignment = dot and Enum.TextXAlignment.Left or Enum.TextXAlignment.Center; lb.Parent = c
+                        return c
+                    end
+                    local function chipLine(y)
+                        local ln = Instance.new("Frame"); ln.BackgroundTransparency = 1; ln.Size = UDim2.new(1, -180, 0, 24)
+                        ln.Position = UDim2.new(0, 170, 0, y); ln.Parent = row
+                        local ll2 = Instance.new("UIListLayout"); ll2.FillDirection = Enum.FillDirection.Horizontal; ll2.Padding = UDim.new(0, 8)
+                        ll2.SortOrder = Enum.SortOrder.LayoutOrder; ll2.VerticalAlignment = Enum.VerticalAlignment.Top
+                        ll2.Parent = ln
+                        return ln
+                    end
+                    local PLAT = {Windows = Color3.fromRGB(80, 170, 255), Mac = Color3.fromRGB(200, 200, 212), Android = Color3.fromRGB(120, 220, 140), iOS = Color3.fromRGB(255, 150, 200)}
+                    local l1 = chipLine(42)
+                    chip(l1, STT[e[6]] or "Inactive", STC[e[6]] or STC.unknown, 1, true)
+                    chip(l1, e[5], PLAT[e[5]] or T.silver, 2)
+                    local fl = {}
+                    if e[7] == "key" then fl[#fl + 1] = "key" end
+                    for _, f in ipairs(exFeats(e)) do fl[#fl + 1] = f end
+                    local tc = Instance.new("Frame"); tc.BackgroundTransparency = 1; tc.Size = UDim2.new(1, -266, 0, 24)
+                    tc.Position = UDim2.new(0, 170, 0, 78); tc.Parent = row
+                    do local tll = Instance.new("UIListLayout"); tll.FillDirection = Enum.FillDirection.Horizontal; tll.Padding = UDim.new(0, 6)
+                        tll.SortOrder = Enum.SortOrder.LayoutOrder; tll.Parent = tc end
+                    local tiles = {}
+                    for _, f in ipairs(fl) do
+                        local names = (f == "key") and {"key"} or FEATI[f]
+                        local img
+                        for _, n in ipairs(names or {}) do local ic = icon(n); if ic ~= "" then img = ic; break end end
+                        if img then
+                            local tl = frame(tc, UDim2.new(0, 24, 0, 24), nil, Color3.fromRGB(20, 20, 25))
+                            tl.LayoutOrder = #tiles + 1
+                            corner(tl, 7); stroke(tl, T.border, .2, 1)
+                            local im = Instance.new("ImageLabel"); im.Size = UDim2.new(0, 14, 0, 14); im.AnchorPoint = Vector2.new(.5, .5)
+                            im.Position = UDim2.new(.5, 0, .5, 0); im.BackgroundTransparency = 1; im.Image = img
+                            im.ImageColor3 = T.silver; im.Parent = tl
+                            tiles[#tiles + 1] = tl
+                        end
+                    end
+                    local function fitTiles()
+                        for _, tl in ipairs(tiles) do
+                            tl.Visible = (tl.AbsolutePosition.X - tc.AbsolutePosition.X) + tl.AbsoluteSize.X <= tc.AbsoluteSize.X + 1
+                        end
+                    end
+                    tc:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() pcall(fitTiles) end)
+                    task.defer(function() pcall(fitTiles) end)
+                    -- Pegar: copia o link do executor (so a cor muda: branco -> verde)
+                    local gb = Instance.new("TextButton")
+                    local tw0 = (#tiles > 0) and (#tiles * 30 - 6) or 0
+                    gb.Size = UDim2.new(1, -(170 + tw0 + 18), 0, 28); gb.AnchorPoint = Vector2.new(1, 1); gb.Position = UDim2.new(1, -10, 1, -8)
+                    gb.BackgroundColor3 = T.silver; gb.Text = ""; gb.AutoButtonColor = false; gb.BorderSizePixel = 0; gb.ZIndex = 3; gb.Parent = row; corner(gb, 8)
+                    pressFx(gb)
+                    do local sc = Instance.new("UISizeConstraint"); sc.MinSize = Vector2.new(80, 28); sc.Parent = gb end
+                    local gl = label(gb, "Pegar", 12, T.darkText, Enum.Font.GothamBold)
+                    gl.Size = UDim2.new(1, 0, 1, 0); gl.TextXAlignment = Enum.TextXAlignment.Center; gl.TextYAlignment = Enum.TextYAlignment.Center; gl.ZIndex = 4
+                    local gIc
+                    do
+                        local gi = ""
+                        for _, n in ipairs({"arrow-right", "arrow-right-to-line", "chevron-right", "log-in"}) do local ic0 = icon(n); if ic0 ~= "" then gi = ic0; break end end
+                        if gi ~= "" then
+                            gIc = Instance.new("ImageLabel"); gIc.Size = UDim2.new(0, 12, 0, 12); gIc.Position = UDim2.new(0, 11, .5, -6)
+                            gIc.BackgroundTransparency = 1; gIc.Image = gi; gIc.ImageColor3 = T.darkText; gIc.ScaleType = Enum.ScaleType.Fit; gIc.ZIndex = 4; gIc.Parent = gb
+                            gl.Position = UDim2.new(0, 26, 0, 0); gl.Size = UDim2.new(1, -32, 1, 0)
+                        end
+                    end
+                    -- brilho branco horizontal passando ao clicar (igual ao botao Executar)
+                    local gSweep = Instance.new("Frame")
+                    gSweep.Name = "Sweep"; gSweep.Size = UDim2.new(1, 0, 1, 0); gSweep.BackgroundColor3 = Color3.new(1, 1, 1)
+                    gSweep.BorderSizePixel = 0; gSweep.ZIndex = 6; gSweep.Active = false; gSweep.Visible = false; gSweep.Parent = gb
+                    corner(gSweep, 8)
+                    local gSweepG = Instance.new("UIGradient")
+                    gSweepG.Transparency = NumberSequence.new({
+                        NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(.35, 1),
+                        NumberSequenceKeypoint.new(.5, .3), NumberSequenceKeypoint.new(.65, 1), NumberSequenceKeypoint.new(1, 1)
+                    })
+                    gSweepG.Rotation = 20; gSweepG.Offset = Vector2.new(-1, 0); gSweepG.Parent = gSweep
+                    local gSweeping = false
+                    local function gPlaySweep(dur)
+                        if gSweeping or not gb.Parent then return end
+                        gSweeping = true
+                        gSweepG.Offset = Vector2.new(-1, 0); gSweep.Visible = true
+                        TweenService:Create(gSweepG, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {Offset = Vector2.new(1, 0)}):Play()
+                        task.delay(dur + .05, function() gSweeping = false; gSweep.Visible = false end)
+                    end
+                    local tok = 0
+                    gb.Activated:Connect(function()
+                        gPlaySweep(.6)
+                        local link = "https://rscripts.net/executors/" .. e[2]
+                        local ok = false
+                        pcall(function() ok = copyText(link) end)
+                        tok = tok + 1; local my = tok
+                        local fg = ok and T.darkText or Color3.new(1, 1, 1)
+                        TweenService:Create(gb, TweenInfo.new(.15), {BackgroundColor3 = ok and GREEN2 or RED2}):Play()
+                        gl.TextColor3 = fg
+                        if gIc then gIc.ImageColor3 = fg end
+                        task.delay(1.6, function()
+                            if my == tok and gb.Parent then
+                                TweenService:Create(gb, TweenInfo.new(.15), {BackgroundColor3 = T.silver}):Play()
+                                gl.TextColor3 = T.darkText
+                                if gIc then gIc.ImageColor3 = T.darkText end
+                            end
+                        end)
+                    end)
+                end
+                local open, busy = false, false
+                pcall(function() open = (_G.__OrionSecGet("__execList") == true) end)
+                exList.Visible = open; ai.Rotation = open and 0 or -90
+                local tiA = TweenInfo.new(.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+                bindTap(arrowBtn, function()
+                    if busy then return end
+                    busy = true; open = not open
+                    pcall(function() _G.__OrionSecSet("__execList", open) end)
+                    TweenService:Create(ai, tiA, {Rotation = open and 0 or -90}):Play()
+                    if open then
+                        exList.AutomaticSize = Enum.AutomaticSize.None
+                        exList.ClipsDescendants = true
+                        exList.Size = UDim2.new(1, 0, 0, 0)
+                        exList.Visible = true
+                        local h = ll.AbsoluteContentSize.Y + 20
+                        local tw = TweenService:Create(exList, tiA, {Size = UDim2.new(1, 0, 0, h)})
+                        tw.Completed:Connect(function()
+                            exList.AutomaticSize = Enum.AutomaticSize.Y; exList.ClipsDescendants = false; busy = false
+                        end)
+                        tw:Play()
+                    else
+                        local h = exList.AbsoluteSize.Y
+                        exList.AutomaticSize = Enum.AutomaticSize.None
+                        exList.ClipsDescendants = true
+                        exList.Size = UDim2.new(1, 0, 0, h)
+                        local tw = TweenService:Create(exList, tiA, {Size = UDim2.new(1, 0, 0, 0)})
+                        tw.Completed:Connect(function() exList.Visible = false; busy = false end)
+                        tw:Play()
+                    end
+                end)
+            end
+
+            -- foto do executor: favicon do site oficial (API de favicon do Google), baixada e usada como imagem local
+            if exInfo and exInfo[2] and getcustomasset and writefile then
+                task.spawn(function()
+                    pcall(function()
+                        local f = _G.__OrionPath("Config", "exec_" .. exInfo[1] .. ".png")
+                        if not (isfile and isfile(f)) then
+                            local raw = game:HttpGet("https://www.google.com/s2/favicons?domain=" .. exInfo[2] .. "&sz=128")
+                            if raw and #raw > 100 then writefile(f, raw) end
+                        end
+                        if isfile(f) then exIco.Image = getcustomasset(f); exLet.Visible = false end
+                    end)
+                end)
+            end
+
+            -- ===== GRAFICO FPS =====
+            local gc = frame(page, UDim2.new(1, 0, 0, 170), nil, Color3.fromRGB(23, 23, 28), 4)
+            corner(gc, 14); arcStroke(gc, 1.6); gc.ClipsDescendants = true
+            local gcF = frame(gc, UDim2.new(1, 0, 1, 0), UDim2.new(), Color3.new(1, 1, 1)); corner(gcF, 14)
+            local gcG = Instance.new("UIGradient"); gcG.Rotation = 20
+            gcG.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(.4, 1), NumberSequenceKeypoint.new(.5, .9), NumberSequenceKeypoint.new(.6, 1), NumberSequenceKeypoint.new(1, 1)}); gcG.Parent = gcF
+            local gt = label(gc, "FPS em tempo real", 14, T.silver, Enum.Font.GothamBold)
+            gt.Position = UDim2.new(0, 14, 0, 10); gt.Size = UDim2.new(.5, 0, 0, 20)
+            local gv = label(gc, "0", 22, T.white, Enum.Font.GothamBold)
+            gv.Position = UDim2.new(.5, 0, 0, 8); gv.Size = UDim2.new(.5, -14, 0, 26); gv.TextXAlignment = Enum.TextXAlignment.Right; sheen(gv)
+            local area = frame(gc, UDim2.new(1, -28, 1, -78), UDim2.new(0, 14, 0, 40), Color3.fromRGB(16, 16, 20)); corner(area, 8); arcStroke(area, 1.2)
+            for k = 1, 3 do
+                local ln = frame(area, UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, k / 4, 0), T.border); ln.BackgroundTransparency = .6
+            end
+            local N, bars, hist = 48, {}, {}
+            for i = 1, N do
+                local b = frame(area, UDim2.new(1 / N, -2, 0, 0), UDim2.new((i - 1) / N, 1, 1, 0), Color3.new(1, 1, 1))
+                b.AnchorPoint = Vector2.new(0, 1); corner(b, 2); bars[i] = b; hist[i] = 0
+            end
+            local mm = label(gc, "mín --  -  média --  -  máx --", 11, T.muted, Enum.Font.GothamMedium)
+            mm.Position = UDim2.new(0, 14, 1, -28); mm.Size = UDim2.new(1, -28, 0, 20)
+
+            -- ===== LOOP =====
+            local saved = tonumber((function() local ok, v = pcall(function() return _G.__OrionSecGet("__sessionTotal") end); return ok and v end)()) or 0
+            local t0, acc, frames, rot, ph, lastSave, lastTick = os.clock(), 0, 0, 0, 0, os.clock(), 0
+            local fps, shown = 60, 0
+            local function save()
+                pcall(function() _G.__OrionSecSet("__sessionTotal", saved + (os.clock() - t0)) end)
+            end
+            conns[#conns + 1] = RS.Heartbeat:Connect(function(dt)
+                if not hostPage.Visible then return end
+                rot = (rot + dt * 35) % 360; ph = ph + dt * .35
+                for _, g in ipairs(rotG) do pcall(function() g.Rotation = rot end) end
+                for _, g in ipairs(sheens) do pcall(function() g.Offset = Vector2.new(math.sin(ph * 2) * .3, 0) end) end
+                sg.Offset = Vector2.new(-1 + (ph % 1.6) / 1.6 * 2, 0)
+                gcG.Offset = Vector2.new(-1 + ((ph + .8) % 1.6) / 1.6 * 2, 0)
+                exG.Offset = Vector2.new(-1 + ((ph + .4) % 1.6) / 1.6 * 2, 0)
+                for _, p in ipairs(parts) do
+                    p.y = p.y - p.s * dt; p.x = p.x + math.sin(ph * 4 + p.s * 90) * .0007
+                    if p.y < -.05 then p.y = 1.05; p.x = math.random() end
+                    p.f.Position = UDim2.new(p.x, 0, p.y, 0)
+                end
+                acc = acc + dt; frames = frames + 1
+                if acc >= .25 then
+                    fps = frames / acc; acc, frames = 0, 0
+                    table.remove(hist, 1); hist[N] = fps
+                    local mn, mx, sum, cnt = 1e9, 0, 0, 0
+                    for _, v in ipairs(hist) do if v > 0 then mn = math.min(mn, v); mx = math.max(mx, v); sum = sum + v; cnt = cnt + 1 end end
+                    local top = math.max(60, mx)
+                    for i = 1, N do
+                        local v = hist[i]
+                        local col = v >= 55 and Color3.fromRGB(235, 235, 245) or (v >= 30 and Color3.fromRGB(255, 205, 90) or Color3.fromRGB(255, 90, 90))
+                        TweenService:Create(bars[i], TweenInfo.new(.2), {Size = UDim2.new(1 / N, -2, math.clamp(v / top, 0, 1), 0), BackgroundColor3 = col}):Play()
+                    end
+                    if cnt > 0 then mm.Text = string.format("mín %d  -  média %d  -  máx %d", mn, sum / cnt, mx) end
+                    local ping = 0
+                    pcall(function() ping = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue() end)
+                    pingV.Text = string.format("%d ms", ping)
+                end
+                shown = shown + (fps - shown) * math.min(1, dt * 8)
+                local fr = math.floor(shown + .5)
+                fpsV.Text = tostring(fr); gv.Text = fr .. " FPS"
+                local cur = os.clock() - t0
+                local total = saved + cur
+                st.Text = fmt(total)
+                chBar.Size = UDim2.new((total % 3600) / 3600, 0, 1, 0)
+                chG.Offset = Vector2.new(-1 + (ph % 1.4) / 1.4 * 2, 0)
+                if os.clock() - lastSave > 10 then lastSave = os.clock(); save() end
+            end)
+            hostPage.Destroying:Connect(function() save(); for _, c in ipairs(conns) do pcall(function() c:Disconnect() end) end end)
+            pcall(function() game:BindToClose(save) end)
+            -- entrada animada
+            for i, o in ipairs({hero, row, exc, gc}) do
+                local sc2 = Instance.new("UIScale"); sc2.Scale = .9; sc2.Parent = o
+                task.delay(i * .08, function() TweenService:Create(sc2, TweenInfo.new(.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play() end)
+            end
+        end
 
         function item:AddSection(sectionTitle, collapsible, sectionIcon, startClosed)
             local section = {}
@@ -1388,7 +2706,7 @@ function OrionLib:Window(cfg)
             do
                 local open, busy = true, false
                 local arrowBtn = button(head, "CollapseSection", UDim2.new(0,26,0,26), UDim2.new(1,-34,.5,-13), T.panel)
-                arrowBtn.ZIndex = 5; corner(arrowBtn, 7); stroke(arrowBtn, T.border, 0, 1)
+                arrowBtn.ZIndex = 5; corner(arrowBtn, 9); stroke(arrowBtn, T.border, 0, 1)
                 local arrowImg = Instance.new("ImageLabel")
                 arrowImg.Size = UDim2.new(0,14,0,14); arrowImg.AnchorPoint = Vector2.new(.5,.5); arrowImg.Position = UDim2.new(.5,0,.5,0)
                 arrowImg.BackgroundTransparency = 1; arrowImg.ImageColor3 = T.silver; arrowImg.ZIndex = 6
@@ -1690,46 +3008,37 @@ function OrionLib:Window(cfg)
                         end)
                     end
 
-                    local copyBtn, applyCopy = makeActionButton("Copy", copyW, 2, T.field, "copy", "\240\159\147\139", copyLabel, T.silver)
-                    local copyStroke = stroke(copyBtn, T.border, 0, 1)
-                    local runBtn, applyRun = makeActionButton("Execute", runW, 3, Color3.new(1,1,1), "play", "\226\150\182", runLabel, T.darkText)
-                    local runGradient = Instance.new("UIGradient")
-                    runGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,255,255)),ColorSequenceKeypoint.new(.5,Color3.fromRGB(255,255,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(255,255,255))})
-                    runGradient.Rotation=35; runGradient.Parent=runBtn
-                    -- brilho branco passando (igual aos botoes da extensao Orion), respeita as bordas arredondadas
-                    do
-                        local sweep = Instance.new("Frame")
-                        sweep.Name = "Sweep"; sweep.Size = UDim2.new(1,0,1,0)
-                        sweep.BackgroundColor3 = Color3.new(1,1,1); sweep.BorderSizePixel = 0
-                        sweep.ZIndex = 12; sweep.Active = false; sweep.Visible = false; sweep.Parent = runBtn
-                        corner(sweep, 7)
-                        local sweepG = Instance.new("UIGradient")
-                        sweepG.Transparency = NumberSequence.new({
-                            NumberSequenceKeypoint.new(0,1), NumberSequenceKeypoint.new(.35,1),
-                            NumberSequenceKeypoint.new(.5,.3), NumberSequenceKeypoint.new(.65,1), NumberSequenceKeypoint.new(1,1)
+                    -- Copiar / Executar: MESMO efeito do botao Pegar (pressFx + reflexo branco horizontal ao clicar + cor de resultado)
+                    local function addSweep(btn)
+                        local sw = Instance.new("Frame")
+                        sw.Name = "Sweep"; sw.Size = UDim2.new(1, 0, 1, 0); sw.BackgroundColor3 = Color3.new(1, 1, 1)
+                        sw.BorderSizePixel = 0; sw.ZIndex = 16; sw.Active = false; sw.Visible = false; sw.Parent = btn
+                        corner(sw, 7)
+                        local sg = Instance.new("UIGradient")
+                        sg.Transparency = NumberSequence.new({
+                            NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(.35, 1),
+                            NumberSequenceKeypoint.new(.5, .3), NumberSequenceKeypoint.new(.65, 1), NumberSequenceKeypoint.new(1, 1)
                         })
-                        sweepG.Rotation = 20; sweepG.Offset = Vector2.new(-1,0); sweepG.Parent = sweep
-                        local sweeping = false
-                        local function playSweep(dur)
-                            if sweeping or not runBtn.Parent or not runGradient.Enabled then return end
-                            sweeping = true
-                            sweepG.Offset = Vector2.new(-1,0); sweep.Visible = true
-                            local tw = TweenService:Create(sweepG, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {Offset = Vector2.new(1,0)})
-                            tw.Completed:Connect(function() sweeping = false; sweep.Visible = false end)
-                            tw:Play()
+                        sg.Color = ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,255,255)),ColorSequenceKeypoint.new(.35,Color3.fromRGB(255,255,255)),ColorSequenceKeypoint.new(.65,Color3.fromRGB(46,204,113)),ColorSequenceKeypoint.new(1,Color3.fromRGB(46,204,113))}); sg.Rotation = 20; sg.Offset = Vector2.new(-1, 0); sg.Parent = sw
+                        local busy = false
+                        return function(dur)
+                            if busy or not btn.Parent then return end
+                            busy = true
+                            sg.Offset = Vector2.new(-1, 0); sw.Visible = true
+                            TweenService:Create(sg, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {Offset = Vector2.new(1, 0)}):Play()
+                            task.delay(dur + .05, function() busy = false; sw.Visible = false end)
                         end
-                        task.spawn(function()
-                            task.wait(1)
-                            while runBtn.Parent do
-                                playSweep(.9)
-                                task.wait(6)
-                            end
-                        end)
-                        runBtn.MouseEnter:Connect(function() playSweep(.6) end)
                     end
 
+                    local copyBtn, applyCopy = makeActionButton("Copy", copyW, 2, T.silver, "copy", "\240\159\147\139", copyLabel, T.darkText)
+                    pressFx(copyBtn)
+                    local copyPlaySweep = addSweep(copyBtn)
+                    local runBtn, applyRun = makeActionButton("Execute", runW, 3, T.silver, "play", "\226\150\182", runLabel, T.darkText)
+                    pressFx(runBtn)
+                    local runPlaySweep = addSweep(runBtn)
+
                     local copyToken = 0
-                    local function doCopy()
+                    copyBtn.Activated:Connect(function()
                         local copied = false
                         if bc.CopyCallback then
                             local okc, res = pcall(bc.CopyCallback)
@@ -1747,23 +3056,14 @@ function OrionLib:Window(cfg)
                         end
                         copyToken = copyToken + 1
                         local my = copyToken
-                        if copied then
-                            copyStroke.Color = WHITE
-                            applyCopy(WHITE, T.darkText, bc.CopiedText or "Copiado")   -- fica branco
-                        else
-                            applyCopy(RED, WHITE, bc.ErrorText or "Erro")
-                        end
+                        if copied then copyPlaySweep(.6); applyCopy(GREEN, T.darkText, copyLabel) else applyCopy(RED, WHITE, copyLabel) end
                         task.delay(1.6, function()
-                            if my == copyToken and copyBtn.Parent then
-                                copyStroke.Color = T.border
-                                applyCopy(T.field, T.silver, copyLabel)
-                            end
+                            if my == copyToken and copyBtn.Parent then applyCopy(T.silver, T.darkText, copyLabel) end
                         end)
-                    end
-                    onPress(copyBtn, doCopy)
+                    end)
 
                     local runToken = 0
-                    local function doExec()
+                    runBtn.Activated:Connect(function()
                         runToken = runToken + 1
                         local my = runToken
                         task.spawn(function()
@@ -1771,29 +3071,22 @@ function OrionLib:Window(cfg)
                             local success = okCb and res ~= false
                             if not okCb then warn("[Orion Lib] Erro no callback: " .. tostring(res)) end
                             if my ~= runToken or not runBtn.Parent then return end
-                            runGradient.Enabled = false -- senao o degrade mistura com a cor
-                            if success then
-                                applyRun(GREEN, T.darkText, bc.ExecutedText or "Executado") -- sucesso: fica verde
-                            else
-                                applyRun(RED, WHITE, bc.ExecutedText or "Executado") -- erro: fica vermelho
-                            end
+                            if success then runPlaySweep(.6); applyRun(GREEN, T.darkText, runLabel) else applyRun(RED, WHITE, runLabel) end
                             task.delay(1.8, function()
-                                if my == runToken and runBtn.Parent then
-                                    runGradient.Enabled = true
-                                    applyRun(Color3.new(1,1,1), T.darkText, runLabel)
-                                end
+                                if my == runToken and runBtn.Parent then applyRun(T.silver, T.darkText, runLabel) end
                             end)
                         end)
+                    end)
+                    local function cardOff()
+                        TweenService:Create(row,TweenInfo.new(.15),{BackgroundColor3=T.panel}):Play()
+                        TweenService:Create(rowStroke,TweenInfo.new(.15),{Color=T.border,Transparency=.1}):Play()
                     end
-                    onPress(runBtn, doExec)
                     row.MouseEnter:Connect(function()
                         TweenService:Create(row,TweenInfo.new(.15),{BackgroundColor3=T.panelHover}):Play()
                         TweenService:Create(rowStroke,TweenInfo.new(.15),{Color=T.silver2,Transparency=.05}):Play()
                     end)
-                    row.MouseLeave:Connect(function()
-                        TweenService:Create(row,TweenInfo.new(.15),{BackgroundColor3=T.panel}):Play()
-                        TweenService:Create(rowStroke,TweenInfo.new(.15),{Color=T.border,Transparency=.1}):Play()
-                    end)
+                    row.MouseLeave:Connect(cardOff)
+                    UserInputService.InputEnded:Connect(function(io) if io.UserInputType == Enum.UserInputType.Touch then task.delay(.08, cardOff) end end)
                     return {SetSelected=function(_,v) if selObj then selObj(v) end end, SetTitle=function(_,v) titleLabel.Text=tostring(v) end, SetImage=function(_,v) resolveImage(v,function(r) if thumb and thumb.Parent and r ~= "" then thumb.Image=r; thumb.ImageColor3=Color3.new(1,1,1) end end) end}
                 else
                     local txt = label(row,text,15,T.white,Enum.Font.GothamMedium)
@@ -1828,9 +3121,11 @@ function OrionLib:Window(cfg)
                 local dot=Instance.new("Frame"); dot.Size=UDim2.new(0,13,0,13); dot.Position=state and UDim2.new(1,-16,.5,-6.5) or UDim2.new(0,3,.5,-6.5)
                 dot.BackgroundColor3=state and T.darkText or T.silver; dot.BorderSizePixel=0; dot.Parent=track; corner(dot,8)
                 local hit=button(row,"ToggleHit",UDim2.new(1,0,1,0),UDim2.new(),Color3.new()); hit.BackgroundTransparency=1
-                local function set(v, fire) state=not not v; TweenService:Create(dot,TweenInfo.new(.15),{Position=state and UDim2.new(1,-16,.5,-6.5) or UDim2.new(0,3,.5,-6.5),BackgroundColor3=state and T.darkText or T.silver}):Play(); TweenService:Create(track,TweenInfo.new(.15),{BackgroundColor3=state and T.silver or T.field}):Play();  if fire~=false then pcall(callback,state) end end
+                local function set(v, fire) state=not not v; slideTo(dot, state and UDim2.new(1,-16,.5,-6.5) or UDim2.new(0,3,.5,-6.5)); TweenService:Create(dot,TweenInfo.new(.15),{BackgroundColor3=state and T.darkText or T.silver}):Play(); TweenService:Create(track,TweenInfo.new(.15),{BackgroundColor3=state and T.silver or T.field}):Play();  if fire~=false then pcall(callback,state) end end
                 bindTap(hit, function() set(not state,true) end)
-                                return {Set=function(_,v,fire) set(v,fire) end,GetValue=function() return state end,SetSubtitle=function(_,v) if subLbl then subLbl.Text=tostring(v) end end}
+                                local ctl = {Set=function(_,v,fire) set(v,fire) end,GetValue=function() return state end,SetSubtitle=function(_,v) if subLbl then subLbl.Text=tostring(v) end end}
+                table.insert(OrionLib._toggles, ctl)
+                return ctl
             end
 
             function section:AddLabel(c)
@@ -2125,7 +3420,7 @@ function OrionLib:Window(cfg)
                 local SIL, SIL2, ACTBG = Color3.fromRGB(235,235,240), Color3.fromRGB(140,140,152), Color3.fromRGB(32,32,38)
                 local function tw(o, p, d) pcall(function() TweenService:Create(o, TweenInfo.new(d or .16, Enum.EasingStyle.Quad), p):Play() end) end
                 local function rnd(f) local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(1,0); c.Parent = f end
-                local function shine(f, r) local sh = Instance.new("Frame"); sh.Size = UDim2.new(1,0,1,0); sh.BackgroundColor3 = Color3.new(1,1,1); sh.BackgroundTransparency = 1
+                local function shine(f, r) local sh = Instance.new("Frame"); sh.Size = UDim2.new(1,0,1,0); sh.BackgroundColor3 = T.accent; sh.BackgroundTransparency = 1
                     sh.BorderSizePixel = 0; sh.Parent = f; corner(sh, r); local g = Instance.new("UIGradient"); g.Color = ColorSequence.new(SIL, SIL2); g.Rotation = 30; g.Parent = sh; return sh end
                 local panel = Instance.new("Frame"); panel.Size = UDim2.new(1,0,0,0); panel.AutomaticSize = Enum.AutomaticSize.Y; panel.BackgroundTransparency = 1; panel.Parent = items; order(panel)
                 local pl = Instance.new("UIListLayout"); pl.SortOrder = Enum.SortOrder.LayoutOrder; pl.Padding = UDim.new(0,6); pl.Parent = panel
@@ -2144,7 +3439,7 @@ function OrionLib:Window(cfg)
                     local hit = button(f, "ChipHit", UDim2.new(1,0,1,0), UDim2.new(), Color3.new()); hit.BackgroundTransparency = 1; hit.ZIndex = 5
                     local function set(v, fire) state = not not v; paint(); if fire ~= false then pcall(cb, state) end end
                     bindTap(hit, function() set(not state, true) end)
-                    return {Set = function(_, v, fr) set(v, fr) end, GetValue = function() return state end}
+                    local ctl = {Set = function(_, v, fr) set(v, fr) end, GetValue = function() return state end}; table.insert(OrionLib._toggles, ctl); return ctl
                 end
                 -- card principal (liga/desliga todos)
                 local hs = false
@@ -2155,7 +3450,7 @@ function OrionLib:Window(cfg)
                 local hd = Instance.new("Frame"); hd.Size = UDim2.new(0,12,0,12); hd.AnchorPoint = Vector2.new(0,.5); hd.Position = UDim2.new(0,3,.5,0); hd.BackgroundColor3 = T.silver2; hd.BorderSizePixel = 0; hd.Parent = trk; rnd(hd)
                 local function hpaint()
                     tw(hsh, {BackgroundTransparency = hs and .88 or 1}); tw(hst, {Color = hs and SIL or T.border}); tw(trk, {BackgroundColor3 = hs and SIL or T.field})
-                    tw(hd, {Position = hs and UDim2.new(1,-15,.5,0) or UDim2.new(0,3,.5,0), BackgroundColor3 = hs and T.darkText or T.silver2})
+                    slideTo(hd, hs and UDim2.new(1,-15,.5,0) or UDim2.new(0,3,.5,0)); tw(hd, {BackgroundColor3 = hs and T.darkText or T.silver2})
                 end
                 hpaint()
                 local hhit = button(hero, "HeroHit", UDim2.new(1,0,1,0), UDim2.new(), Color3.new()); hhit.BackgroundTransparency = 1; hhit.ZIndex = 5
@@ -2196,7 +3491,7 @@ function OrionLib:Window(cfg)
                 local panel = Instance.new("Frame"); panel.Size = UDim2.new(1,0,0,200); panel.BackgroundTransparency = 1; panel.Parent = items; order(panel)
                 section:AddESPPreview({Get = pc.Get, Parent = panel, Size = UDim2.new(0,150,0,124), Position = UDim2.new(0,0,0,0), Compact = true})
 
-                local function shine(f, r) local sh = Instance.new("Frame"); sh.Size = UDim2.new(1,0,1,0); sh.BackgroundColor3 = Color3.new(1,1,1); sh.BackgroundTransparency = 1
+                local function shine(f, r) local sh = Instance.new("Frame"); sh.Size = UDim2.new(1,0,1,0); sh.BackgroundColor3 = T.accent; sh.BackgroundTransparency = 1
                     sh.BorderSizePixel = 0; sh.Parent = f; corner(sh, r); local g = Instance.new("UIGradient"); g.Color = ColorSequence.new(SIL, SIL2); g.Rotation = 30; g.Parent = sh; return sh end
                 local repaints = {}
                 local function chip(parent, title, def, cb, size, pos, dotFn)
@@ -2213,7 +3508,7 @@ function OrionLib:Window(cfg)
                     local hit = button(f, "ChipHit", UDim2.new(1,0,1,0), UDim2.new(), Color3.new()); hit.BackgroundTransparency = 1; hit.ZIndex = 5
                     local function set(v, fire) state = not not v; paint(); if fire ~= false then pcall(cb, state) end end
                     bindTap(hit, function() set(not state, true) end)
-                    return {Set = function(_, v, fr) set(v, fr) end, GetValue = function() return state end}
+                    local ctl = {Set = function(_, v, fr) set(v, fr) end, GetValue = function() return state end}; table.insert(OrionLib._toggles, ctl); return ctl
                 end
 
                 local right = Instance.new("Frame"); right.Position = UDim2.new(0,158,0,0); right.Size = UDim2.new(1,-158,0,124); right.BackgroundTransparency = 1; right.Parent = panel
@@ -2226,7 +3521,7 @@ function OrionLib:Window(cfg)
                 local hd = Instance.new("Frame"); hd.Size = UDim2.new(0,12,0,12); hd.AnchorPoint = Vector2.new(0,.5); hd.Position = UDim2.new(0,3,.5,0); hd.BackgroundColor3 = T.silver2; hd.BorderSizePixel = 0; hd.Parent = trk; rnd(hd)
                 local function hpaint()
                     tw(hsh, {BackgroundTransparency = hs and .88 or 1}); tw(hst, {Color = hs and SIL or T.border}); tw(trk, {BackgroundColor3 = hs and SIL or T.field})
-                    tw(hd, {Position = hs and UDim2.new(1,-15,.5,0) or UDim2.new(0,3,.5,0), BackgroundColor3 = hs and T.darkText or T.silver2})
+                    slideTo(hd, hs and UDim2.new(1,-15,.5,0) or UDim2.new(0,3,.5,0)); tw(hd, {BackgroundColor3 = hs and T.darkText or T.silver2})
                 end
                 hpaint()
                 local hhit = button(hero, "HeroHit", UDim2.new(1,0,1,0), UDim2.new(), Color3.new()); hhit.BackgroundTransparency = 1; hhit.ZIndex = 5
@@ -2257,6 +3552,20 @@ function OrionLib:Window(cfg)
                         if fire ~= false and sc.Callback then pcall(sc.Callback, value) end
                     end
                     set(value, false)
+                    if sc.ResetValue ~= nil then
+                        tl.Size = UDim2.new(1,-86,0,14)
+                        local rb = Instance.new("TextButton"); rb.Name = "ResetBtn"; rb.Text = ""; rb.AutoButtonColor = false
+                        rb.Size = UDim2.new(0,18,0,16); rb.AnchorPoint = Vector2.new(1,0); rb.Position = UDim2.new(1,-54,0,2)
+                        rb.BackgroundColor3 = T.field; rb.BorderSizePixel = 0; rb.ZIndex = 5; rb.Parent = row; corner(rb,5); stroke(rb, T.border, 0, 1)
+                        local ri = icon("rotate-ccw"); if ri == "" then ri = icon("undo-2") end
+                        if ri ~= "" then
+                            local im = Instance.new("ImageLabel"); im.BackgroundTransparency = 1; im.Size = UDim2.new(0,11,0,11)
+                            im.AnchorPoint = Vector2.new(.5,.5); im.Position = UDim2.new(.5,0,.5,0); im.Image = ri; im.ImageColor3 = T.silver; im.ZIndex = 6; im.Parent = rb
+                        else
+                            rb.Text = "↺"; rb.Font = Enum.Font.GothamBold; rb.TextSize = 12; rb.TextColor3 = T.silver
+                        end
+                        bindTap(rb, function() set(sc.ResetValue, true) end)
+                    end
                     vl.Focused:Connect(function() vl.Text = tostring(value) end)
                     vl.FocusLost:Connect(function() local n = tonumber((vl.Text or ""):match("-?%d+%.?%d*")); if n then set(n) else vl.Text = tostring(value) .. suf end end)
                     local sliding = false
@@ -2360,16 +3669,14 @@ function OrionLib:Window(cfg)
                             local th=Instance.new("ImageLabel"); th.Size=UDim2.new(1,-2,1,-2); th.Position=UDim2.new(0,1,0,1); th.BackgroundTransparency=1; th.ScaleType=Enum.ScaleType.Fit; th.ZIndex=3; th.Parent=tb; corner(th,5)
                             do local fb=v.fallback; if type(fb)=="string" and fb~="" then th.Image=fb end
                                 if type(v.image)=="string" and v.image~="" then resolveImage(v.image,function(r) if th.Parent and r and r~="" then th.Image=r; th.ImageColor3=Color3.new(1,1,1) end end) end end
-                            local tl=label(card,tostring(v.name or "Script"),12,T.white,Enum.Font.GothamBold); tl.Position=UDim2.new(0,72,0,7); tl.Size=UDim2.new(1,-116,0,16); tl.TextTruncate=Enum.TextTruncate.AtEnd
+                            local tl=label(card,tostring(v.name or "Script"),12,T.white,Enum.Font.GothamBold); tl.Position=UDim2.new(0,72,0,7); tl.Size=UDim2.new(1,-84,0,16); tl.TextTruncate=Enum.TextTruncate.AtEnd
                             local dtxt=(tostring(v.description or ""):gsub("%s+"," "))
-                            local dl=label(card,dtxt,10,T.muted); dl.Position=UDim2.new(0,72,0,24); dl.Size=UDim2.new(1,-116,0,16); dl.TextTruncate=Enum.TextTruncate.AtEnd
+                            local dl=label(card,dtxt,10,T.muted); dl.Position=UDim2.new(0,72,0,24); dl.Size=UDim2.new(1,-84,0,16); dl.TextTruncate=Enum.TextTruncate.AtEnd
                             if dc.OnItemClick then
-                                local rm=button(card,"RemoveHit",UDim2.new(0,26,0,26),UDim2.new(1,-8,.5,0),T.panel); rm.AnchorPoint=Vector2.new(1,.5); rm.ZIndex=10; corner(rm,13)
-                                local rs=stroke(rm,T.border,0,1)
-                                local xi=Instance.new("ImageLabel"); xi.BackgroundTransparency=1; xi.Size=UDim2.new(0,13,0,13); xi.AnchorPoint=Vector2.new(.5,.5); xi.Position=UDim2.new(.5,0,.5,0); xi.Image=icon("x"); xi.ImageColor3=T.muted; xi.ZIndex=11; xi.Parent=rm
-                                rm.MouseEnter:Connect(function() rm.BackgroundColor3=Color3.fromRGB(54,24,25); rs.Color=T.error; xi.ImageColor3=T.error end)
-                                rm.MouseLeave:Connect(function() rm.BackgroundColor3=T.panel; rs.Color=T.border; xi.ImageColor3=T.muted end)
-                                bindTap(rm, function() pcall(dc.OnItemClick, v) end)
+                                local hitc=button(card,"RemoveHit",UDim2.new(1,0,1,0),UDim2.new(),Color3.new()); hitc.BackgroundTransparency=1; hitc.ZIndex=10
+                                card.MouseEnter:Connect(function() card.BackgroundColor3=Color3.fromRGB(54,24,25) end)
+                                card.MouseLeave:Connect(function() card.BackgroundColor3=T.field end)
+                                bindTap(hitc, function() pcall(dc.OnItemClick, v) end)
                             end
                         else
                             local isSel=(tostring(_name(v))==tostring(_name(selected)))
@@ -2380,7 +3687,7 @@ function OrionLib:Window(cfg)
                         end
                     end
                 end
-                rebuild(values); bindTap(hit, function() if dc.Display then if #values==0 then pcall(Bell.push,"error","Orion Studios",(OrionLib.IsPT~=false) and "Nenhum script selecionado para a execução automática." or "No script selected for auto-execute.") end return end menu.Visible=not menu.Visible; arrow.Rotation=menu.Visible and 180 or 0 end)
+                rebuild(values); bindTap(hit, function() if dc.Display then if #values==0 then pcall(Bell.push,"error","Orion Hub",(OrionLib.IsPT~=false) and "Nenhum script selecionado para a execução automática." or "No script selected for auto-execute.") end return end menu.Visible=not menu.Visible; arrow.Rotation=menu.Visible and 180 or 0 end)
                 return {Set=function(_,v) selected=v; txt.Text=_lbl(v); if dc.Callback then pcall(dc.Callback,v) end end,SetValues=rebuild,SetOptions=rebuild,GetValue=function() return selected end}
             end
             function section:AddSlider(sc)
@@ -2623,9 +3930,9 @@ function OrionLib:Window(cfg)
         return item
     end
     function window:RegisterFloat(float) window._float=float; closeHooks.float=float end
-    function window:DestroyGui() if screen then screen:Destroy() end end
+    function window:DestroyGui() if screen then pcall(function() screen:SetAttribute("OrionClosing", true) end); screen:Destroy() end OrionLib.KillBlur(); task.delay(.5, OrionLib.KillBlur) end
     function window:SetTheme() end
-    function window:GetThemes() return {"Orion Studios"} end
+    function window:GetThemes() return {"Orion Hub"} end
     function window:GetThemeColor() return T.bg end
     function window:SetAccentColor() end
     function window:SetTransparency() end
@@ -2636,10 +3943,33 @@ function OrionLib:Window(cfg)
 end
 
 function OrionLib:FloatBtn(cfg)
+    pcall(function()
+        for _, g in ipairs(game:GetService("CoreGui"):GetChildren()) do
+            if g.Name == "OrionStudios_Float" or g.Name == "WinUIFloatBtn" or (g.Name and g.Name:find("Float")) then
+                g:Destroy()
+            end
+        end
+    end)
+
     cfg=cfg or {}
-    local screen=Instance.new("ScreenGui"); screen.Name="OrionStudios_Float"; screen.ResetOnSpawn=false; screen.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; pcall(function() screen.DisplayOrder=2147483647; screen.IgnoreGuiInset=true end)
+    local screen=Instance.new("ScreenGui"); screen.Name="OrionStudios_Float"; OrionLib.Protect(screen); screen.ResetOnSpawn=false; screen.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; pcall(function() screen.DisplayOrder=2147483647; screen.IgnoreGuiInset=true end)
     pcall(function() if syn and syn.protect_gui then syn.protect_gui(screen) end; screen.Parent=(gethui and gethui()) or CoreGui end)
     if not screen.Parent then pcall(function() screen.Parent=Players.LocalPlayer:WaitForChild("PlayerGui") end) end
+    local destroyedByUser=false
+    task.spawn(function()
+        while not destroyedByUser do
+            task.wait(0.5)
+            pcall(function()
+                if not screen.Enabled then screen.Enabled=true end
+                if screen.DisplayOrder~=2147483647 then screen.DisplayOrder=2147483647 end
+                local want=(gethui and gethui()) or CoreGui
+                if screen.Parent==nil or (screen.Parent~=want and screen.Parent~=Players.LocalPlayer:FindFirstChild("PlayerGui")) then
+                    local ok=pcall(function() screen.Parent=want end)
+                    if not ok or not screen.Parent then pcall(function() screen.Parent=Players.LocalPlayer:WaitForChild("PlayerGui",3) end) end
+                end
+            end)
+        end
+    end)
     local main=cfg.MainHolder
     local sz=tonumber(cfg.Size) or 46
     local frame=Instance.new("Frame"); frame.Name="FloatButton"; frame.Size=UDim2.new(0,sz,0,sz); frame.Position=UDim2.new(0,18,.5,-sz/2)
@@ -2653,7 +3983,33 @@ function OrionLib:FloatBtn(cfg)
     frame.BackgroundColor3=T.bg; frame.BorderSizePixel=0; frame.Parent=screen; corner(frame,13); stroke(frame,T.silver2,.15,1.5)
     local image=Instance.new("ImageLabel"); image.Name="Logo"; image.Size=UDim2.new(1,-10,1,-10); image.Position=UDim2.new(0,5,0,5); image.BackgroundTransparency=1; image.Image=cfg.Icon or "rbxassetid://106423297301247"; image.ScaleType=Enum.ScaleType.Fit; image.Parent=frame
     local hit=button(frame,"FloatHit",UDim2.new(1,0,1,0),UDim2.new(),Color3.new()); hit.BackgroundTransparency=1
+    -- rosto do botao principal: fica na frente dos atalhos, que nascem/somem por tras dele
+    frame.BackgroundTransparency=1
+    local face=Instance.new("Frame"); face.Name="Face"; face.Size=UDim2.new(1,0,1,0); face.BackgroundColor3=T.bg; face.BorderSizePixel=0; face.ZIndex=4; face.Parent=frame; corner(face,13)
+    image.ZIndex=6
+    -- efeito de "pressionado": ao passar o dedo/mouse por cima e ao tocar, o fundo do icone clareia
+    do
+        local TS = game:GetService("TweenService")
+        local hov, prs = false, false
+        local function paint()
+            local ti = TweenInfo.new(.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            TS:Create(face, ti, {BackgroundColor3 = (prs or hov) and T.panelHover or T.bg}):Play()
+        end
+        hit.MouseEnter:Connect(function() hov = true; paint() end)
+        hit.MouseLeave:Connect(function() hov = false; prs = false; paint() end)
+        hit.InputBegan:Connect(function(io)
+            if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then prs = true; paint() end
+        end)
+        UserInputService.InputEnded:Connect(function(io)
+            if (io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch) and prs then
+                prs = false
+                if io.UserInputType == Enum.UserInputType.Touch then hov = false end
+                paint()
+            end
+        end)
+    end
     -- o botao de hit cobre o frame, entao o arrasto precisa ser ligado nele
+    local spawnPos = frame.Position -- posicao de nascimento (ao lado da interface)
     local startPos, dragged = nil, false
     hit.InputBegan:Connect(function(io)
         if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then startPos=io.Position; dragged=false end
@@ -2664,15 +4020,203 @@ function OrionLib:FloatBtn(cfg)
         end
     end)
     UserInputService.InputEnded:Connect(function(io)
-        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then startPos=nil end
+        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
+            local wasDrag = startPos ~= nil
+            local wasMoved = dragged
+            startPos=nil
+            if wasDrag then task.spawn(function()
+                task.wait(.12)
+                pcall(function()
+                    -- solto em cima da interface: volta pra posicao de spawn
+                    if main and main.Parent and main.Visible and main.AbsoluteSize.X > 0 then
+                        local sg = main:FindFirstAncestorOfClass("ScreenGui")
+                        if not sg or sg.Enabled then
+                            local inset = game:GetService("GuiService"):GetGuiInset()
+                            local ms, fp = main.AbsoluteSize, frame.AbsolutePosition
+                            local function over(dy)
+                                local mp = main.AbsolutePosition + Vector2.new(0, dy)
+                                return fp.X < mp.X + ms.X and fp.X + sz > mp.X and fp.Y < mp.Y + ms.Y and fp.Y + sz > mp.Y
+                            end
+                            if over(inset.Y) or over(0) then
+                                game:GetService("TweenService"):Create(frame, TweenInfo.new(.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = spawnPos}):Play()
+                                return
+                            end
+                        end
+                    end
+                    local vp, ap, m = screen.AbsoluteSize, frame.AbsolutePosition, 8
+                    local cx = math.clamp(ap.X, m, math.max(m, vp.X - sz - m))
+                    local cy = math.clamp(ap.Y, m, math.max(m, vp.Y - sz - m))
+                    if math.abs(cx-ap.X) > .5 or math.abs(cy-ap.Y) > .5 then
+                        local p = frame.Position
+                        game:GetService("TweenService"):Create(frame, TweenInfo.new(.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+                            {Position = UDim2.new(p.X.Scale, p.X.Offset + (cx-ap.X), p.Y.Scale, p.Y.Offset + (cy-ap.Y))}):Play()
+                    end
+                end)
+            end) end
+        end
     end)
+    pcall(function() _G.__OrionFloatFrame = frame end)
     draggable(hit,frame)
-    hit.ZIndex = 5
+    hit.ZIndex = 7
+    -- atalhos animados (so no 1o uso depois que entrou no jogo): 1o clique abre Home/Scripts, 2o clique abre a interface
+    local function getShortcuts()
+        if type(cfg.Shortcuts) == "function" then
+            local ok, r = pcall(cfg.Shortcuts)
+            return (ok and type(r) == "table") and r or {}
+        end
+        return cfg.Shortcuts or {}
+    end
+    local scDone, scOpen, scBtns = false, false, {}
+    local function scClose(animate)
+        scOpen = false
+        local list = scBtns; scBtns = {}
+        for _, b in ipairs(list) do
+            if animate and b.Parent then
+                local tw = game:GetService("TweenService"):Create(b, TweenInfo.new(.22, Enum.EasingStyle.Back, Enum.EasingDirection.In),
+                    {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0, sz / 2, 0, sz / 2)})
+                tw.Completed:Connect(function() pcall(function() b:Destroy() end) end); tw:Play()
+            else pcall(function() b:Destroy() end) end
+        end
+    end
+    local function scOpenShortcuts()
+        scOpen = true
+        local shortcuts = getShortcuts()
+        local ms = 34
+        -- posiciona TODOS os atalhos em aneis ao redor do botao, so em pontos visiveis na tela
+        local n = #shortcuts
+        local vp = screen.AbsoluteSize
+        local ap = frame.AbsolutePosition
+        local cx, cy = ap.X + sz / 2, ap.Y + sz / 2
+        local mg = ms / 2 + 4
+        local function onScreen(a, R)
+            local px, py = cx + R * math.cos(a), cy + R * math.sin(a)
+            return px >= mg and px <= vp.X - mg and py >= mg and py <= vp.Y - mg
+        end
+        -- circulo organizado: angulos iguais; raio cresce ate ninguem encostar em ninguem
+        local spots, minStep = {}, 0
+        local R = math.max(sz / 2 + ms / 2 + 12, (ms + 10) * n / (2 * math.pi))
+        for _ = 1, 10 do
+            minStep = (ms + 10) / R
+            local SAMPLES = 120
+            local valid, allOk = {}, true
+            for j = 0, SAMPLES - 1 do
+                valid[j] = onScreen(-math.pi / 2 + 2 * math.pi * j / SAMPLES, R)
+                if not valid[j] then allOk = false end
+            end
+            if allOk then
+                for k = 0, n - 1 do spots[#spots + 1] = -math.pi / 2 + 2 * math.pi * k / n end
+                break
+            end
+            -- maior arco continuo visivel (circular)
+            local bestStart, bestLen, j = 0, 0, 0
+            while j < SAMPLES do
+                if valid[j] then
+                    local len = 0
+                    while len < SAMPLES and valid[(j + len) % SAMPLES] do len = len + 1 end
+                    if len > bestLen then bestStart, bestLen = j, len end
+                    j = j + len + 1
+                else j = j + 1 end
+            end
+            local span = (bestLen - 1) * 2 * math.pi / SAMPLES
+            if bestLen > 0 and (n <= 1 or span >= (n - 1) * minStep) then
+                local a0 = -math.pi / 2 + 2 * math.pi * bestStart / SAMPLES
+                local step = (n <= 1) and 0 or span / (n - 1)
+                if n > 1 then step = math.min(step, minStep * 1.6) end
+                local used = step * (n - 1)
+                a0 = a0 + (span - used) / 2 -- centraliza no arco livre
+                for k = 0, n - 1 do spots[#spots + 1] = a0 + step * k end
+                break
+            end
+            R = R + 12
+        end
+        for k, a in ipairs(spots) do
+            spots[k] = {sz / 2 + R * math.cos(a) - ms / 2, sz / 2 + R * math.sin(a) - ms / 2}
+        end
+        for i, sc in ipairs(shortcuts) do
+            local b = Instance.new("TextButton"); b.Text = ""; b.AutoButtonColor = false; b.BorderSizePixel = 0
+            b.BackgroundColor3 = T.bg; b.AnchorPoint = Vector2.new(0, 0); b.ZIndex = 2
+            b.Size = UDim2.new(0, 0, 0, 0); b.Position = UDim2.new(0, sz / 2, 0, sz / 2); b.Parent = frame
+            corner(b, 11); stroke(b, T.silver2, .15, 1.5)
+            local im = Instance.new("ImageLabel"); im.Size = UDim2.new(0, 18, 0, 18); im.AnchorPoint = Vector2.new(.5, .5)
+            im.Position = UDim2.new(.5, 0, .5, 0); im.BackgroundTransparency = 1; im.ZIndex = 3
+            local ic = icon(sc.Icon); im.Image = (ic ~= "") and ic or ""; im.ImageColor3 = T.silver; im.Parent = b
+            scBtns[#scBtns + 1] = b
+            do -- clareia ao passar o dedo/mouse por cima e ao tocar (igual ao botao principal)
+                local hov, prs = false, false
+                local function paint()
+                    game:GetService("TweenService"):Create(b, TweenInfo.new(.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                        {BackgroundColor3 = (hov or prs) and T.panelHover or T.bg}):Play()
+                end
+                b.MouseEnter:Connect(function() hov = true; paint() end)
+                b.MouseLeave:Connect(function() hov = false; prs = false; paint() end)
+                b.InputBegan:Connect(function(io)
+                    if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then prs = true; paint() end
+                end)
+                b.InputEnded:Connect(function(io)
+                    if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then
+                        prs = false
+                        if io.UserInputType == Enum.UserInputType.Touch then hov = false end
+                        paint()
+                    end
+                end)
+            end
+            local sp = spots[i] or spots[1]
+            task.delay((i - 1) * .07, function()
+                if b.Parent then
+                    game:GetService("TweenService"):Create(b, TweenInfo.new(.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+                        {Size = UDim2.new(0, ms, 0, ms), Position = UDim2.new(0, sp[1], 0, sp[2])}):Play()
+                end
+            end)
+            bindTap(b, function()
+                if not scOpen then return end
+                scClose(true)
+                task.delay(.28, function() -- primeiro a animacao, depois a interface
+                    if main and main.Parent then main.Visible = true end
+                    if sc.Callback then pcall(sc.Callback) end
+                end)
+            end)
+        end
+    end
+    local homePos = frame.Position -- posicao original (encostado na lateral da interface)
+    local function avoidMain()
+        pcall(function()
+            if not (main and main.Parent and main.Visible and frame.Parent) then return end
+            local inset = Vector2.new(0, 0)
+            pcall(function() inset = game:GetService("GuiService"):GetGuiInset() end)
+            local mp = Vector2.new(main.AbsolutePosition.X, main.AbsolutePosition.Y + inset.Y)
+            local ms = main.AbsoluteSize
+            local function hits(p) return p.X < mp.X + ms.X and p.X + sz > mp.X and p.Y < mp.Y + ms.Y and p.Y + sz > mp.Y end
+            if not hits(frame.AbsolutePosition) then return end -- ja esta fora da interface
+            local vp = screen.AbsoluteSize
+            local target = homePos
+            local abs = Vector2.new(vp.X * homePos.X.Scale + homePos.X.Offset, vp.Y * homePos.Y.Scale + homePos.Y.Offset)
+            if hits(abs) then -- a posicao original tambem ficou embaixo da interface: usa a lateral dela
+                local x = math.max(8, mp.X - sz - 10)
+                target = UDim2.new(0, x, 0, math.clamp(mp.Y + ms.Y / 2 - sz / 2, 8, math.max(8, vp.Y - sz - 8)))
+            end
+            game:GetService("TweenService"):Create(frame, TweenInfo.new(.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = target}):Play()
+        end)
+    end
+    pcall(function()
+        if main then main:GetPropertyChangedSignal("Visible"):Connect(function()
+            if main.Visible then
+                if scOpen then scClose(true) end
+                task.delay(.06, avoidMain) -- se o botao ficou em cima da interface, volta pro lugar original
+            end
+        end) end
+    end)
     bindTap(hit, function()
         if dragged then dragged=false; return end
+        -- sempre que a interface estiver fechada, o clique abre os atalhos; clicar de novo abre a interface
+        if #getShortcuts() > 0 and main and main.Parent and (scOpen or not main.Visible) then
+            if not scOpen then scOpenShortcuts(); return end
+            scClose(true)
+            task.delay(.28, function() if main and main.Parent then main.Visible = true end end)
+            return
+        end
         if main and main.Parent then main.Visible=not main.Visible elseif cfg.Callback then pcall(cfg.Callback) end
     end)
-    return {Destroy=function() screen:Destroy() end,SetIcon=function(_,v) image.Image=icon(v)~="" and icon(v) or v end,SetColor=function(_,v) local st=frame:FindFirstChildOfClass("UIStroke"); if st then st.Color=v end end}
+    return {Destroy=function() destroyedByUser=true; screen:Destroy() end,SetIcon=function(_,v) image.Image=icon(v)~="" and icon(v) or v end,SetColor=function(_,v) local st=frame:FindFirstChildOfClass("UIStroke"); if st then st.Color=v end end}
 end
 
 local notifyGui, notifyList
@@ -2693,11 +4237,11 @@ function OrionLib:MakeNotify(cfg)
             t = "warning"
         end
     end
-    Bell.push(t, cfg.Title or "Orion Studios", cfg.Content or cfg.Description or cfg.Text or "")
+    Bell.push(t, cfg.Title or "Orion Hub", cfg.Content or cfg.Description or cfg.Text or "")
     return { Close = function() end }
 end
 
-OrionLib.LibVersion = 8
+OrionLib.LibVersion = 14
 _G.OrionLib=OrionLib
 _G.WinUILib=OrionLib
 _G.LucideIcons=Icons
