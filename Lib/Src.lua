@@ -762,7 +762,7 @@ function OrionLib:Window(cfg)
     title.Position = UDim2.new(0, 56, 0, 6)
     title.Size = UDim2.new(1, -190, 0, 20)
     title.TextTruncate = Enum.TextTruncate.AtEnd
-    local brand = label(header, "ORION HUB", 9, T.accent, Enum.Font.GothamBold)
+    local brand = label(header, "ORION HUB", 9, T.muted, Enum.Font.GothamBold)
     brand.Position = UDim2.new(0, 57, 0, 27)
     brand.Size = UDim2.new(0, 210, 0, 14)
     brand.TextXAlignment = Enum.TextXAlignment.Left
@@ -1854,7 +1854,7 @@ local function mdConv(t)
                     end)
                 end
                 if #log == 0 then
-                    addMsg("Olá! Me chamo removed, sou o criador do Orion Hub e esta é uma réplica da minha mente. Posso ajudá-lo com algo?", false)
+                    addMsg("Olá! Me chamo , sou o criador do Orion Hub e esta é uma réplica da minha mente. Posso ajudá-lo com algo?", false)
                 else
                     for _, m in ipairs(log) do if type(m) == "table" and type(m.t) == "string" then addMsg(m.t, m.u == true) end end
                 end
@@ -3945,9 +3945,7 @@ end
 function OrionLib:FloatBtn(cfg)
     pcall(function()
         for _, g in ipairs(game:GetService("CoreGui"):GetChildren()) do
-            if g.Name == "OrionStudios_Float" or g.Name == "WinUIFloatBtn" or (g.Name and g.Name:find("Float")) then
-                g:Destroy()
-            end
+            if g.Name == "OrionStudios_Float" or g.Name == "WinUIFloatBtn" or (type(g.Name)=="string" and g.Name:find("Float")) then g:Destroy() end
         end
     end)
 
