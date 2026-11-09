@@ -753,7 +753,7 @@ function OrionLib:Window(cfg)
     logo.Size = UDim2.new(1, -6, 1, -6)
     logo.Position = UDim2.new(0, 3, 0, 3)
     logo.BackgroundTransparency = 1
-    logo.Image = "rbxassetid://7733960981"
+    logo.Image = "rbxassetid://7733960981"; logo.ImageColor3 = Color3.fromRGB(16,185,129)
     logo.ScaleType = Enum.ScaleType.Fit
     logo.Parent = logoFrame
 
@@ -3978,12 +3978,12 @@ function OrionLib:FloatBtn(cfg)
             frame.Position = UDim2.new(0, x, 0, main.AbsolutePosition.Y + inset.Y + main.AbsoluteSize.Y / 2 - sz / 2)
         end
     end)
-    frame.BackgroundColor3=T.bg; frame.BorderSizePixel=0; frame.Parent=screen; corner(frame,13); stroke(frame,T.silver2,.15,1.5)
-    local image=Instance.new("ImageLabel"); image.Name="Logo"; image.Size=UDim2.new(1,-10,1,-10); image.Position=UDim2.new(0,5,0,5); image.BackgroundTransparency=1; image.Image=cfg.Icon or "rbxassetid://106423297301247"; image.ScaleType=Enum.ScaleType.Fit; image.Parent=frame
+    frame.BackgroundColor3=Color3.fromRGB(10,10,12); frame.BorderSizePixel=0; frame.Parent=screen; corner(frame,13); stroke(frame,Color3.fromRGB(16,185,129),.2,1.4)
+    local image=Instance.new("TextLabel"); image.Name="Logo"; image.Size=UDim2.new(1,-6,1,-6); image.Position=UDim2.new(0,3,0,3); image.BackgroundTransparency=1; image.Text="◈"; image.Font=Enum.Font.GothamBold; image.TextSize=math.floor((tonumber(cfg.Size) or 46)*0.48); image.TextColor3=Color3.fromRGB(16,185,129); image.TextXAlignment=Enum.TextXAlignment.Center; image.TextYAlignment=Enum.TextYAlignment.Center; image.Parent=frame
     local hit=button(frame,"FloatHit",UDim2.new(1,0,1,0),UDim2.new(),Color3.new()); hit.BackgroundTransparency=1
     -- rosto do botao principal: fica na frente dos atalhos, que nascem/somem por tras dele
     frame.BackgroundTransparency=1
-    local face=Instance.new("Frame"); face.Name="Face"; face.Size=UDim2.new(1,0,1,0); face.BackgroundColor3=T.bg; face.BorderSizePixel=0; face.ZIndex=4; face.Parent=frame; corner(face,13)
+    local face=Instance.new("Frame"); face.Name="Face"; face.Size=UDim2.new(1,0,1,0); face.BackgroundColor3=Color3.fromRGB(10,10,12); face.BorderSizePixel=0; face.ZIndex=4; face.Parent=frame; corner(face,13); do local st=Instance.new("UIStroke"); st.Color=Color3.fromRGB(16,185,129); st.Thickness=1.4; st.Transparency=0.15; st.Parent=face end
     image.ZIndex=6
     -- efeito de "pressionado": ao passar o dedo/mouse por cima e ao tocar, o fundo do icone clareia
     do
@@ -3991,7 +3991,7 @@ function OrionLib:FloatBtn(cfg)
         local hov, prs = false, false
         local function paint()
             local ti = TweenInfo.new(.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-            TS:Create(face, ti, {BackgroundColor3 = (prs or hov) and T.panelHover or T.bg}):Play()
+            TS:Create(face, ti, {BackgroundColor3 = (prs or hov) and Color3.fromRGB(22,28,26) or Color3.fromRGB(10,10,12)}):Play()
         end
         hit.MouseEnter:Connect(function() hov = true; paint() end)
         hit.MouseLeave:Connect(function() hov = false; prs = false; paint() end)
