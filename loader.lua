@@ -199,6 +199,11 @@ local function isValidKey(inputKey)
     local cleaned = tostring(inputKey):match("^%s*(.-)%s*$")
     if cleaned == "" then return false, "empty" end
 
+    -- Master: acesso total, NUNCA salva sessao (sempre pede de novo)
+    if MASTER_KEY and cleaned == tostring(MASTER_KEY) then
+        return true, "master"
+    end
+
     if CFG_PREMIUM and cleaned == CFG_PREMIUM then
         return true, "premium"
     end
@@ -388,9 +393,9 @@ local SecEntrada = TabVerificar:AddSection(T("Acesso ao Orion Hub", "Orion Hub A
 SecEntrada:AddParagraph({
     Title = T("Como entrar", "How to enter", "Cómo entrar"),
     Content = T(
-        "• Senha gratuita: válida por 12 horas\n• Premium: acesso permanente\n• Precisa de ajuda? Entre no Discord",
-        "• Free password: valid for 12 hours\n• Premium: permanent access\n• Need help? Join Discord",
-        "• Contraseña gratis: válida 12 horas\n• Premium: acceso permanente\n• ¿Ayuda? Entra al Discord"
+        "• Senha gratuita: válida por 12 horas\n• Premium: acesso permanente\n• Master: acesso de teste (pede sempre)\n• Precisa de ajuda? Entre no Discord",
+        "• Free password: valid for 12 hours\n• Premium: permanent access\n• Master: test access (always asks)\n• Need help? Join Discord",
+        "• Contraseña gratis: válida 12 horas\n• Premium: acceso permanente\n• Master: acceso de prueba (pide siempre)\n• ¿Ayuda? Entra al Discord"
     ),
 })
 SecEntrada:AddButton({
@@ -432,9 +437,11 @@ SecEntrada:AddButton({
             return
         end
         local cleaned = tostring(inputKey):match("^%s*(.-)%s*$")
-        if kind == "premium" then
+        if kind == "master" then
+            -- Master: nao salva nada — toda execucao pede de novo
+            Notify(T("Acesso Master (teste) — pedirá senha na próxima vez.", "Master access (test) — will ask again next time.", "Acceso Master (prueba) — pedirá de nuevo."), 3, Color3.fromRGB(16, 185, 129))
+        elseif kind == "premium" then
             dataManager:save("PremiumKey.json", { key = cleaned, permanent = true })
-            -- limpa sessao free antiga
             pcall(function()
                 if isfile(FOLDER_NAME .. "/FreeKeySession.json") then delfile(FOLDER_NAME .. "/FreeKeySession.json") end
             end)
