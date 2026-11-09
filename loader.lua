@@ -246,9 +246,18 @@ local function executarScript()
     loadstring(game:HttpGet(UNIVERSAL_URL, true))()
 end
 
-if hasSavedKey() then
-    executarScript()
-    return
+do
+    local okS, kindS = hasSavedKey()
+    if okS then
+        if kindS == "premium" then
+            _G.__OrionSession = { type = "premium", label = "Premium", expiresAt = nil }
+        else
+            local free = dataManager:load("FreeKeySession.json")
+            _G.__OrionSession = { type = "free", label = "Free", expiresAt = free and free.expiresAt }
+        end
+        executarScript()
+        return
+    end
 end
 
 --// UI lib
@@ -296,158 +305,85 @@ local Float = OrionLib:FloatBtn({
 })
 Window:RegisterFloat(Float)
 
-local TabVerificar = Window:AddTab({
-    Name = T("Verificar", "Verify", "Verificar"),
+local TabKey = Window:AddTab({
+    Name = T("Acesso", "Access", "Acceso"),
     Icon = "rbxassetid://7733965118",
 })
-local TabPremium = Window:AddTab({
-    Name = T("Premium", "Premium", "Premium"),
-    Icon = "rbxassetid://127843403295538",
-})
-local TabAdmin = Window:AddTab({
-    Name = T("Admin", "Admin", "Admin"),
-    Icon = "rbxassetid://7734053495",
-})
 
-local _acessoJaLiberado = false
-local function liberarAcesso()
-    if _acessoJaLiberado then return end
-    _acessoJaLiberado = true
-    pcall(function() Window:DestroyGui() end)
-    pcall(function() if Window._holder then Window._holder:Destroy() end end)
-    pcall(function()
-        local fb = CoreGui:FindFirstChild("WinUIFloatBtn")
-        if fb then fb:Destroy() end
-    end)
-    pcall(function()
-        for _, gui in CoreGui:GetChildren() do
-            if gui.Name:find("WinUI") or gui.Name:find(HUB_NAME) then gui:Destroy() end
-        end
-    end)
-    task.wait(0.2)
-    if CFG_SND ~= "" then
-        task.spawn(function()
-            local s = Instance.new("Sound")
-            s.SoundId = CFG_SND
-            s.Volume = CFG_VOL
-            s.Parent = game:GetService("SoundService")
-            if not s.IsLoaded then s.Loaded:Wait() end
-            s:Play()
-            game:GetService("Debris"):AddItem(s, 15)
-        end)
-    end
-    task.spawn(function()
-        local ok, err = pcall(executarScript)
-        if not ok then warn("[" .. HUB_NAME .. "] Erro:", err) end
-    end)
-end
-
-task.delay(0.5, function()
-    Notify(T("Sistema de senha ativo!", "Password system active!", "¡Sistema de contraseña activo!"), 4, Color3.fromRGB(100, 220, 180))
-end)
-
-local _shortIdx = 0
-local function copyShortLink()
-    local links = INTERNAL_CONFIG.ShortLinks or {}
-    if #links == 0 then return end
-    _shortIdx = (_shortIdx % #links) + 1
-    setclipboard(links[_shortIdx])
-    Notify(
-        T("Link copiado! Abra no navegador para pegar sua senha (válida 12h).", "Link copied! Open in browser (valid 12h).", "¡Enlace copiado! Válido 12h."),
-        5,
-        Color3.fromRGB(16, 185, 129)
-    )
-end
-
-local function copyDiscord()
-    setclipboard(INTERNAL_CONFIG.DiscordInvite or "")
-    Notify(T("Link do Discord copiado!", "Discord link copied!", "¡Enlace de Discord copiado!"), 4, Color3.fromRGB(16, 185, 129))
-end
-
---// Idioma
-local SecLang = TabVerificar:AddSection(T("Idioma", "Language", "Idioma"), true)
+-- Idioma compacto (canto / topo da aba)
+local SecLang = TabKey:AddSection(T("Idioma", "Language", "Idioma"), true)
 SecLang:AddButton({
-    Title = "🇧🇷  Português (BR)",
+    Title = "🇧🇷 PT",
     Callback = function()
         saveLang("pt")
-        Notify("Idioma: Português (reabra o hub para aplicar tudo)", 4, Color3.fromRGB(16, 185, 129))
+        Notify("Português", 2, Color3.fromRGB(16, 185, 129))
     end,
 })
 SecLang:AddButton({
-    Title = "🇺🇸  English",
+    Title = "🇺🇸 EN",
     Callback = function()
         saveLang("en")
-        Notify("Language: English (reopen hub to apply fully)", 4, Color3.fromRGB(16, 185, 129))
+        Notify("English", 2, Color3.fromRGB(16, 185, 129))
     end,
 })
 SecLang:AddButton({
-    Title = "🇪🇸  Español",
+    Title = "🇪🇸 ES",
     Callback = function()
         saveLang("es")
-        Notify("Idioma: Español (reabre el hub para aplicar todo)", 4, Color3.fromRGB(16, 185, 129))
+        Notify("Español", 2, Color3.fromRGB(16, 185, 129))
     end,
 })
 
---// Verificar
-local SecEntrada = TabVerificar:AddSection(T("Acesso ao Orion Hub", "Orion Hub Access", "Acceso a Orion Hub"), true)
-SecEntrada:AddParagraph({
-    Title = T("Como entrar", "How to enter", "Cómo entrar"),
-    Content = T(
-        "• Senha gratuita: válida por 12 horas\n• Premium: acesso permanente\n• Master: acesso de teste (pede sempre)\n• Precisa de ajuda? Entre no Discord",
-        "• Free password: valid for 12 hours\n• Premium: permanent access\n• Master: test access (always asks)\n• Need help? Join Discord",
-        "• Contraseña gratis: válida 12 horas\n• Premium: acceso permanente\n• Master: acceso de prueba (pide siempre)\n• ¿Ayuda? Entra al Discord"
-    ),
-})
-SecEntrada:AddButton({
-    Title = T("Obter Senha Gratuita (12h)", "Get Free Password (12h)", "Obtener Contraseña Gratis (12h)"),
+local SecKeys = TabKey:AddSection(T("Keys", "Keys", "Keys"), true)
+
+SecKeys:AddButton({
+    Title = T("Key Free", "Key Free", "Key Free"),
     Callback = copyShortLink,
 })
-SecEntrada:AddButton({
-    Title = T("Entrar no Discord", "Join Discord", "Entrar al Discord"),
+
+SecKeys:AddButton({
+    Title = T("Key Premium", "Key Premium", "Key Premium"),
     Callback = copyDiscord,
 })
 
 local inputKey = ""
-SecEntrada:AddInput({
-    Title = T("Digite a senha:", "Enter the password:", "Ingresa la contraseña:"),
-    Content = T("Cole sua senha aqui", "Paste your password here", "Pega tu contraseña aquí"),
+SecKeys:AddInput({
+    Title = T("Senha", "Password", "Contraseña"),
+    Content = T("Cole a key aqui", "Paste key here", "Pega la key aquí"),
     Default = "",
     Callback = function(value) inputKey = value end,
 })
-SecEntrada:AddButton({
-    Title = T("Confirmar Senha", "Confirm Password", "Confirmar Contraseña"),
+
+SecKeys:AddButton({
+    Title = T("Confirmar", "Confirm", "Confirmar"),
     Callback = function()
         if not inputKey or inputKey == "" then
-            Notify(T("Por favor, digite uma senha", "Please enter a password", "Por favor ingresa una contraseña"), 3, Color3.fromRGB(255, 150, 80))
+            Notify(T("Digite uma senha", "Enter a password", "Ingresa una contraseña"), 3, Color3.fromRGB(255, 150, 80))
             return
         end
         local ok, kind = isValidKey(inputKey)
         if not ok then
             local msg
             if kind == "expired" then
-                msg = T(
-                    "Senha gratuita expirada (12h). Pegue uma nova.",
-                    "Free password expired (12h). Get a new one.",
-                    "Contraseña gratis expirada (12h). Obtén una nueva."
-                )
+                msg = T("Key Free expirada. Pegue outra.", "Free key expired. Get a new one.", "Key Free expirada.")
             else
-                msg = T("Senha incorreta, tente novamente", "Wrong password, try again", "Contraseña incorrecta")
+                msg = T("Senha incorreta", "Wrong password", "Contraseña incorrecta")
             end
             Notify(msg, 4, Color3.fromRGB(255, 80, 80))
             return
         end
         local cleaned = tostring(inputKey):match("^%s*(.-)%s*$")
         if kind == "master" then
-            -- Master: nao salva nada — toda execucao pede de novo
-            Notify(T("Acesso Master (teste) — pedirá senha na próxima vez.", "Master access (test) — will ask again next time.", "Acceso Master (prueba) — pedirá de nuevo."), 3, Color3.fromRGB(16, 185, 129))
+            _G.__OrionSession = { type = "master", label = "Master", expiresAt = nil }
+            Notify(T("Master OK (pede de novo na próxima)", "Master OK (asks again next time)", "Master OK"), 3, Color3.fromRGB(16, 185, 129))
         elseif kind == "premium" then
             dataManager:save("PremiumKey.json", { key = cleaned, permanent = true })
             pcall(function()
                 if isfile(FOLDER_NAME .. "/FreeKeySession.json") then delfile(FOLDER_NAME .. "/FreeKeySession.json") end
             end)
-            Notify(T("Premium ativado — acesso permanente!", "Premium activated — permanent access!", "¡Premium activado — acceso permanente!"), 3, Color3.fromRGB(16, 185, 129))
+            _G.__OrionSession = { type = "premium", label = "Premium", expiresAt = nil }
+            Notify(T("Premium ativado", "Premium activated", "Premium activado"), 3, Color3.fromRGB(16, 185, 129))
         else
-            -- free: grava sessao 12h (se ja existe e valida, reusa; se nova, inicia timer)
             local session = dataManager:load("FreeKeySession.json")
             local expiresAt
             if session and session.key == cleaned and type(session.expiresAt) == "number" and now() <= session.expiresAt then
@@ -461,116 +397,12 @@ SecEntrada:AddButton({
                 expiresAt = expiresAt,
                 hours = INTERNAL_CONFIG.FreeKeyHours or 12,
             })
-            Notify(
-                T("Acesso liberado por 12 horas!", "Access granted for 12 hours!", "¡Acceso liberado por 12 horas!"),
-                3,
-                Color3.fromRGB(16, 185, 129)
-            )
+            _G.__OrionSession = { type = "free", label = "Free", expiresAt = expiresAt }
+            Notify(T("Acesso liberado", "Access granted", "Acceso liberado"), 3, Color3.fromRGB(16, 185, 129))
         end
-        task.wait(1)
+        task.wait(0.8)
         liberarAcesso()
     end,
-})
-
---// Premium tab
-local SecPrem = TabPremium:AddSection(T("Acesso Premium", "Premium Access", "Acceso Premium"), true)
-SecPrem:AddParagraph({
-    Title = T("Premium permanente", "Permanent Premium", "Premium permanente"),
-    Content = T(
-        "A key Premium libera o hub para sempre neste dispositivo.\nAs senhas do encurtador valem apenas 12 horas.\nFale no Discord para adquirir o Premium.",
-        "Premium key unlocks the hub permanently on this device.\nShortener passwords last only 12 hours.\nTalk on Discord to get Premium.",
-        "La key Premium libera el hub para siempre.\nLas del acortador duran solo 12 horas.\nHabla en Discord para adquirir Premium."
-    ),
-})
-SecPrem:AddButton({
-    Title = T("Entrar no Discord", "Join Discord", "Entrar al Discord"),
-    Callback = copyDiscord,
-})
-
---// Admin (sempre pede master)
-local _adminUnlocked = false
-local _adminInput = ""
-local SecAdminLock = TabAdmin:AddSection(T("Área restrita", "Restricted area", "Área restringida"), true)
-SecAdminLock:AddParagraph({
-    Title = T("Acesso Admin", "Admin Access", "Acceso Admin"),
-    Content = T(
-        "Digite a senha master toda vez para acessar.",
-        "Enter the master password every time to access.",
-        "Ingresa la contraseña master cada vez."
-    ),
-})
-SecAdminLock:AddInput({
-    Title = T("Senha Master", "Master Password", "Contraseña Master"),
-    Content = T("Somente o dono", "Owner only", "Solo el dueño"),
-    Default = "",
-    Callback = function(v) _adminInput = v end,
-})
-SecAdminLock:AddButton({
-    Title = T("Desbloquear Admin", "Unlock Admin", "Desbloquear Admin"),
-    Callback = function()
-        local typed = tostring(_adminInput or ""):match("^%s*(.-)%s*$")
-        if typed ~= "" and typed == tostring(MASTER_KEY) then
-            _adminUnlocked = true
-            Notify(T("Admin desbloqueado.", "Admin unlocked.", "Admin desbloqueado."), 3, Color3.fromRGB(16, 185, 129))
-        else
-            _adminUnlocked = false
-            Notify(T("Senha master incorreta.", "Wrong master password.", "Contraseña master incorrecta."), 3, Color3.fromRGB(255, 80, 80))
-        end
-    end,
-})
-
-local SecAdmin = TabAdmin:AddSection(T("Painel Admin", "Admin Panel", "Panel Admin"), true)
-local function requireAdmin(fn)
-    return function(...)
-        if not _adminUnlocked then
-            Notify(T("Desbloqueie com a senha master.", "Unlock with master password.", "Desbloquea con la master."), 3, Color3.fromRGB(255, 150, 80))
-            return
-        end
-        return fn(...)
-    end
-end
-
-SecAdmin:AddButton({
-    Title = T("Copiar key Premium", "Copy Premium key", "Copiar key Premium"),
-    Callback = requireAdmin(function()
-        setclipboard(tostring(CFG_PREMIUM))
-        Notify(T("Premium copiada.", "Premium copied.", "Premium copiada."), 3, Color3.fromRGB(16, 185, 129))
-    end),
-})
-SecAdmin:AddButton({
-    Title = T("Copiar meu UserId", "Copy my UserId", "Copiar mi UserId"),
-    Callback = requireAdmin(function()
-        local id = tostring(LocalPlayer and LocalPlayer.UserId or 0)
-        setclipboard(id)
-        Notify("UserId: " .. id, 3, Color3.fromRGB(16, 185, 129))
-    end),
-})
-SecAdmin:AddButton({
-    Title = T("Ver status da sessão", "Session status", "Estado de sesión"),
-    Callback = requireAdmin(function()
-        local prem = dataManager:load("PremiumKey.json")
-        local free = dataManager:load("FreeKeySession.json")
-        local msg
-        if prem and prem.key then
-            msg = T("Premium ativo (permanente)", "Premium active (permanent)", "Premium activo (permanente)")
-        elseif free and free.expiresAt then
-            local left = math.max(0, free.expiresAt - now())
-            local h = math.floor(left / 3600)
-            local m = math.floor((left % 3600) / 60)
-            msg = T("Free restante: ", "Free remaining: ", "Free restante: ") .. h .. "h " .. m .. "m"
-        else
-            msg = T("Nenhuma sessão ativa", "No active session", "Sin sesión activa")
-        end
-        Notify(msg, 5, Color3.fromRGB(16, 185, 129))
-    end),
-})
-SecAdmin:AddParagraph({
-    Title = T("Regras", "Rules", "Reglas"),
-    Content = T(
-        "• Premium = permanente\n• Encurtador = 12 horas\n• Master pede toda vez na aba Admin",
-        "• Premium = permanent\n• Shortener = 12 hours\n• Master asked every time in Admin",
-        "• Premium = permanente\n• Acortador = 12 horas\n• Master se pide siempre en Admin"
-    ),
 })
 
 _G.Window = Window

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Orion Hub — Admin</title>
+<style>
+  :root { --bg:#0a0a0c; --card:#141418; --green:#10b981; --text:#e7e7ea; --muted:#9a9aa3; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--text); min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
+  .card { width:100%; max-width:420px; background:var(--card); border:1px solid #222; border-radius:16px; padding:28px; }
+  h1 { margin:0 0 8px; font-size:1.35rem; color:var(--green); }
+  p { color:var(--muted); font-size:.9rem; line-height:1.45; }
+  label { display:block; margin:16px 0 6px; font-size:.8rem; color:var(--muted); }
+  input { width:100%; padding:12px 14px; border-radius:10px; border:1px solid #2a2a30; background:#0e0e12; color:var(--text); font-size:1rem; }
+  button { margin-top:16px; width:100%; padding:12px; border:0; border-radius:10px; background:var(--green); color:#042f1e; font-weight:700; cursor:pointer; }
+  button:hover { filter:brightness(1.08); }
+  .panel { display:none; margin-top:20px; }
+  .panel.show { display:block; }
+  .row { background:#0e0e12; border-radius:10px; padding:12px; margin:8px 0; font-size:.85rem; word-break:break-all; }
+  .ok { color:var(--green); font-size:.85rem; margin-top:10px; }
+  .err { color:#f87171; font-size:.85rem; margin-top:10px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Orion Hub Admin</h1>
+    <p>Painel separado do executor. Digite a senha master para ver as keys.</p>
+    <label>Senha Master</label>
+    <input id="master" type="password" placeholder="Senha master" />
+    <button id="btn">Entrar</button>
+    <div id="msg"></div>
+    <div class="panel" id="panel">
+      <div class="row"><strong>Premium</strong><br><code id="prem"></code></div>
+      <div class="row"><strong>Master</strong><br><code id="mast"></code></div>
+      <div class="row"><strong>Free (12h)</strong><br><code id="free"></code></div>
+      <p class="ok">Premium = permanente · Free = 12 horas · Master = pede sempre no hub</p>
+      <p style="color:var(--muted);font-size:.8rem">Para alterar keys, edite <code>Config/Head.lua</code> no GitHub.</p>
+    </div>
+  </div>
+  <script>
+    const MASTER = "ORION-MASTER-BARAO-2026";
+    const PREMIUM = "ORION-PREMIUM-BARAO-PERM";
+    const FREE = [
+      "KEY-ALFA-7X-2-B-Z9M4Q",
+      "KEY-BETA-3Y-5-C-X7K2V",
+      "KEY-GAMA-9Z-8-D-L3P5W",
+      "KEY-DELTA-4W-1-E-M8R7T",
+      "KEY-OMEGA-6V-3-F-N2S9Y"
+    ];
+    document.getElementById("btn").onclick = () => {
+      const v = document.getElementById("master").value.trim();
+      const msg = document.getElementById("msg");
+      const panel = document.getElementById("panel");
+      if (v === MASTER) {
+        msg.innerHTML = '<div class="ok">Admin liberado.</div>';
+        panel.classList.add("show");
+        document.getElementById("prem").textContent = PREMIUM;
+        document.getElementById("mast").textContent = MASTER;
+        document.getElementById("free").textContent = FREE.join("\n");
+      } else {
+        msg.innerHTML = '<div class="err">Senha master incorreta.</div>';
+        panel.classList.remove("show");
+      }
+    };
+  </script>
+</body>
+</html>
