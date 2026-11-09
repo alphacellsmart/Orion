@@ -220,6 +220,7 @@ do
     end
 end
 
+
 local function getExecutorName()
     if identifyexecutor then
         local ok, name = pcall(identifyexecutor)
@@ -228,69 +229,328 @@ local function getExecutorName()
     return "Unknown"
 end
 
-local OrionLib = loadstring(game:HttpGet("https://win-ui-online.vercel.app/Lib/Src.lua"))()
+local TweenService = game:GetService("TweenService")
+local CoreGuiSvc = game:GetService("CoreGui")
 
-local function Notify(content, delay, color)
-    return OrionLib:MakeNotify({
-        Title = HUB_NAME,
-        Content = content or "",
-        Color = color or Color3.fromRGB(255, 255, 255),
-        Delay = delay or 4,
-    })
+local GREEN = Color3.fromRGB(16, 185, 129)
+local GREEN_SOFT = Color3.fromRGB(52, 211, 153)
+local CARD = Color3.fromRGB(18, 18, 22)
+local CARD2 = Color3.fromRGB(24, 24, 30)
+local TEXT = Color3.fromRGB(235, 235, 240)
+local MUTED = Color3.fromRGB(140, 140, 150)
+local STROKE = Color3.fromRGB(40, 40, 48)
+
+local function corner(p, r)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, r or 12)
+    c.Parent = p
+    return c
 end
 
-local gameName = ""
-pcall(function()
-    gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name or ""
-end)
+local function stroke(p, color, t, thick)
+    local s = Instance.new("UIStroke")
+    s.Color = color or STROKE
+    s.Transparency = t or 0
+    s.Thickness = thick or 1
+    s.Parent = p
+    return s
+end
 
-local Window = OrionLib:Window({
-    Title = HUB_NAME .. (gameName ~= "" and (" | " .. gameName) or "") .. " | " .. getExecutorName(),
-    Color = Color3.fromRGB(16, 185, 129),
-    Version = 1,
-    ThemePreset = CFG_THEME,
-})
+local function makeLabel(parent, text, size, color, font)
+    local l = Instance.new("TextLabel")
+    l.BackgroundTransparency = 1
+    l.Text = text or ""
+    l.TextColor3 = color or TEXT
+    l.TextSize = size or 14
+    l.Font = font or Enum.Font.GothamMedium
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.TextYAlignment = Enum.TextYAlignment.Center
+    l.Parent = parent
+    return l
+end
 
-pcall(function()
-    local Float = OrionLib:FloatBtn({
-        Icon = CFG_ICON,
-        Color = Color3.fromRGB(16, 185, 129),
-        ColorDark = Color3.fromRGB(10, 10, 12),
-        Size = 46,
-        MainHolder = Window._holder,
+local function addShine(parent, radius)
+    local clip = Instance.new("Frame")
+    clip.Name = "ShineClip"
+    clip.BackgroundTransparency = 1
+    clip.ClipsDescendants = true
+    clip.Size = UDim2.fromScale(1, 1)
+    clip.ZIndex = (parent.ZIndex or 1) + 3
+    clip.Parent = parent
+    corner(clip, radius or 14)
+
+    local sh = Instance.new("Frame")
+    sh.BackgroundColor3 = Color3.fromRGB(16, 185, 129)
+    sh.BackgroundTransparency = 0.75
+    sh.BorderSizePixel = 0
+    sh.Size = UDim2.new(0.28, 0, 1.5, 0)
+    sh.Position = UDim2.new(-0.5, 0, -0.25, 0)
+    sh.Rotation = 20
+    sh.ZIndex = clip.ZIndex
+    sh.Parent = clip
+    local g = Instance.new("UIGradient")
+    g.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.5, 0.2),
+        NumberSequenceKeypoint.new(1, 1),
     })
-    Window:RegisterFloat(Float)
+    g.Parent = sh
+
+    task.spawn(function()
+        while clip.Parent do
+            sh.Position = UDim2.new(-0.6, 0, -0.25, 0)
+            local tw = TweenService:Create(sh, TweenInfo.new(2.0, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
+                Position = UDim2.new(1.2, 0, -0.25, 0)
+            })
+            tw:Play()
+            tw.Completed:Wait()
+            task.wait(2.5)
+        end
+    end)
+end
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "OrionHub_Login"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.DisplayOrder = 1000
+pcall(function()
+    if syn and syn.protect_gui then syn.protect_gui(gui) end
+end)
+gui.Parent = (gethui and gethui()) or CoreGuiSvc
+
+local dim = Instance.new("Frame")
+dim.Size = UDim2.fromScale(1, 1)
+dim.BackgroundColor3 = Color3.new(0, 0, 0)
+dim.BackgroundTransparency = 0.4
+dim.BorderSizePixel = 0
+dim.Parent = gui
+
+local main = Instance.new("Frame")
+main.Name = "Card"
+main.AnchorPoint = Vector2.new(0.5, 0.5)
+main.Position = UDim2.fromScale(0.5, 0.5)
+main.Size = UDim2.fromOffset(380, 470)
+main.BackgroundColor3 = CARD
+main.BorderSizePixel = 0
+main.Parent = gui
+corner(main, 18)
+stroke(main, GREEN, 0.5, 1.6)
+addShine(main, 18)
+
+local accent = Instance.new("Frame")
+accent.Size = UDim2.new(1, 0, 0, 2)
+accent.BackgroundColor3 = GREEN
+accent.BorderSizePixel = 0
+accent.Parent = main
+
+local header = Instance.new("Frame")
+header.BackgroundTransparency = 1
+header.Size = UDim2.new(1, -40, 0, 64)
+header.Position = UDim2.fromOffset(20, 18)
+header.Parent = main
+
+local logoBox = Instance.new("Frame")
+logoBox.Size = UDim2.fromOffset(42, 42)
+logoBox.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
+logoBox.BorderSizePixel = 0
+logoBox.Parent = header
+corner(logoBox, 12)
+stroke(logoBox, GREEN, 0.2, 1.4)
+
+local logoTxt = Instance.new("TextLabel")
+logoTxt.BackgroundTransparency = 1
+logoTxt.Size = UDim2.fromScale(1, 1)
+logoTxt.Text = "◈"
+logoTxt.TextColor3 = GREEN
+logoTxt.TextSize = 20
+logoTxt.Font = Enum.Font.GothamBold
+logoTxt.Parent = logoBox
+
+local title = makeLabel(header, "Orion Hub", 20, TEXT, Enum.Font.GothamBold)
+title.Position = UDim2.fromOffset(54, 4)
+title.Size = UDim2.new(1, -100, 0, 24)
+
+local sub = makeLabel(header, T("Acesso premium", "Premium access", "Acceso premium"), 12, MUTED, Enum.Font.Gotham)
+sub.Position = UDim2.fromOffset(54, 30)
+sub.Size = UDim2.new(1, -100, 0, 18)
+
+local langBtn = Instance.new("TextButton")
+langBtn.Size = UDim2.fromOffset(40, 26)
+langBtn.Position = UDim2.new(1, -40, 0, 8)
+langBtn.BackgroundColor3 = CARD2
+langBtn.Text = (_lang == "en" and "EN") or (_lang == "es" and "ES") or "PT"
+langBtn.TextColor3 = GREEN
+langBtn.TextSize = 11
+langBtn.Font = Enum.Font.GothamBold
+langBtn.AutoButtonColor = false
+langBtn.Parent = header
+corner(langBtn, 8)
+stroke(langBtn, GREEN, 0.45, 1)
+
+local langs = { "pt", "en", "es" }
+local langLabels = { pt = "PT", en = "EN", es = "ES" }
+langBtn.MouseButton1Click:Connect(function()
+    local i = 1
+    for idx, v in ipairs(langs) do
+        if v == _lang then i = idx break end
+    end
+    local nextL = langs[(i % #langs) + 1]
+    saveLang(nextL)
+    langBtn.Text = langLabels[nextL]
+    sub.Text = T("Acesso premium", "Premium access", "Acceso premium")
 end)
 
-local TabAcesso = Window:AddTab({
-    Name = T("Acesso", "Access", "Acceso"),
-    Icon = "rbxassetid://7733965118",
-})
-local TabFree = Window:AddTab({
-    Name = T("Key Free", "Key Free", "Key Free"),
-    Icon = "rbxassetid://7743878857",
-})
-local TabPrem = Window:AddTab({
-    Name = T("Key Premium", "Key Premium", "Key Premium"),
-    Icon = "rbxassetid://127843403295538",
-})
-local TabConfig = Window:AddTab({
-    Name = T("Config", "Config", "Config"),
-    Icon = "rbxassetid://7734053495",
-})
+local body = Instance.new("Frame")
+body.BackgroundTransparency = 1
+body.Position = UDim2.fromOffset(20, 94)
+body.Size = UDim2.new(1, -40, 1, -120)
+body.Parent = main
+
+local list = Instance.new("UIListLayout")
+list.Padding = UDim.new(0, 10)
+list.SortOrder = Enum.SortOrder.LayoutOrder
+list.Parent = body
+
+local function notifyCustom(msg, color)
+    local n = Instance.new("Frame")
+    n.AnchorPoint = Vector2.new(0.5, 0)
+    n.Position = UDim2.new(0.5, 0, 0, 20)
+    n.Size = UDim2.fromOffset(320, 42)
+    n.BackgroundColor3 = Color3.fromRGB(16, 16, 20)
+    n.BorderSizePixel = 0
+    n.Parent = gui
+    corner(n, 10)
+    stroke(n, color or GREEN, 0.25, 1.2)
+    local nl = makeLabel(n, msg, 13, TEXT, Enum.Font.GothamMedium)
+    nl.Size = UDim2.fromScale(1, 1)
+    nl.TextXAlignment = Enum.TextXAlignment.Center
+    task.delay(3, function() pcall(function() n:Destroy() end) end)
+end
+
+local function copyShortLink()
+    local links = INTERNAL_CONFIG.ShortLinks
+    _G.__OrionShortIdx = ((_G.__OrionShortIdx or 0) % #links) + 1
+    setclipboard(links[_G.__OrionShortIdx])
+    notifyCustom(T("Link Key Free copiado!", "Free key link copied!", "¡Enlace Key Free copiado!"), GREEN)
+end
+
+local function copyDiscord()
+    setclipboard(INTERNAL_CONFIG.DiscordInvite)
+    notifyCustom(T("Discord copiado!", "Discord copied!", "¡Discord copiado!"), GREEN)
+end
+
+local function makeActionCard(order, titleText, descText, onClick)
+    local f = Instance.new("TextButton")
+    f.LayoutOrder = order
+    f.Size = UDim2.new(1, 0, 0, 58)
+    f.BackgroundColor3 = CARD2
+    f.AutoButtonColor = false
+    f.Text = ""
+    f.Parent = body
+    corner(f, 12)
+    stroke(f, STROKE, 0.15, 1)
+    addShine(f, 12)
+
+    local t = makeLabel(f, titleText, 14, TEXT, Enum.Font.GothamBold)
+    t.Position = UDim2.fromOffset(14, 10)
+    t.Size = UDim2.new(1, -28, 0, 18)
+
+    local d = makeLabel(f, descText, 11, MUTED, Enum.Font.Gotham)
+    d.Position = UDim2.fromOffset(14, 30)
+    d.Size = UDim2.new(1, -28, 0, 16)
+
+    f.MouseEnter:Connect(function()
+        TweenService:Create(f, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(28, 32, 30) }):Play()
+    end)
+    f.MouseLeave:Connect(function()
+        TweenService:Create(f, TweenInfo.new(0.15), { BackgroundColor3 = CARD2 }):Play()
+    end)
+    f.MouseButton1Click:Connect(function()
+        if onClick then onClick() end
+    end)
+end
+
+makeActionCard(1,
+    T("Key Free", "Key Free", "Key Free"),
+    T("Obter senha pelo encurtador", "Get password via shortener", "Obtener contraseña por acortador"),
+    copyShortLink
+)
+
+makeActionCard(2,
+    T("Key Premium", "Key Premium", "Key Premium"),
+    T("Acesso permanente — Discord", "Permanent access — Discord", "Acceso permanente — Discord"),
+    copyDiscord
+)
+
+local passCard = Instance.new("Frame")
+passCard.LayoutOrder = 3
+passCard.Size = UDim2.new(1, 0, 0, 124)
+passCard.BackgroundColor3 = CARD2
+passCard.BorderSizePixel = 0
+passCard.Parent = body
+corner(passCard, 12)
+stroke(passCard, STROKE, 0.15, 1)
+addShine(passCard, 12)
+
+local passTitle = makeLabel(passCard, T("Digite sua key", "Enter your key", "Ingresa tu key"), 13, TEXT, Enum.Font.GothamBold)
+passTitle.Position = UDim2.fromOffset(14, 12)
+passTitle.Size = UDim2.new(1, -28, 0, 18)
+
+local inputBox = Instance.new("Frame")
+inputBox.Size = UDim2.new(1, -28, 0, 36)
+inputBox.Position = UDim2.fromOffset(14, 38)
+inputBox.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
+inputBox.BorderSizePixel = 0
+inputBox.Parent = passCard
+corner(inputBox, 10)
+stroke(inputBox, GREEN, 0.6, 1)
+
+local input = Instance.new("TextBox")
+input.BackgroundTransparency = 1
+input.Size = UDim2.new(1, -20, 1, 0)
+input.Position = UDim2.fromOffset(10, 0)
+input.PlaceholderText = "Master  ·  Premium  ·  Free"
+input.PlaceholderColor3 = Color3.fromRGB(90, 90, 100)
+input.Text = ""
+input.TextColor3 = TEXT
+input.TextSize = 13
+input.Font = Enum.Font.Gotham
+input.ClearTextOnFocus = false
+input.TextXAlignment = Enum.TextXAlignment.Left
+input.Parent = inputBox
+
+local confirm = Instance.new("TextButton")
+confirm.Size = UDim2.new(1, -28, 0, 34)
+confirm.Position = UDim2.fromOffset(14, 82)
+confirm.BackgroundColor3 = GREEN
+confirm.AutoButtonColor = false
+confirm.Text = T("Confirmar acesso", "Confirm access", "Confirmar acceso")
+confirm.TextColor3 = Color3.fromRGB(6, 30, 20)
+confirm.TextSize = 13
+confirm.Font = Enum.Font.GothamBold
+confirm.Parent = passCard
+corner(confirm, 10)
+
+confirm.MouseEnter:Connect(function()
+    TweenService:Create(confirm, TweenInfo.new(0.12), { BackgroundColor3 = GREEN_SOFT }):Play()
+end)
+confirm.MouseLeave:Connect(function()
+    TweenService:Create(confirm, TweenInfo.new(0.12), { BackgroundColor3 = GREEN }):Play()
+end)
+
+local foot = makeLabel(main, "Orion Hub  ·  " .. getExecutorName(), 10, MUTED, Enum.Font.Gotham)
+foot.Position = UDim2.new(0, 20, 1, -24)
+foot.Size = UDim2.new(1, -40, 0, 14)
+foot.TextXAlignment = Enum.TextXAlignment.Center
 
 local _opened = false
 local function liberarAcesso()
     if _opened then return end
     _opened = true
-    pcall(function() Window:DestroyGui() end)
-    pcall(function() if Window._holder then Window._holder:Destroy() end end)
-    pcall(function()
-        for _, gui in ipairs(CoreGui:GetChildren()) do
-            if gui.Name:find("WinUI") or gui.Name:find("Orion") then pcall(function() gui:Destroy() end) end
-        end
-    end)
-    task.wait(0.15)
+    pcall(function() gui:Destroy() end)
+    task.wait(0.12)
     if CFG_SND ~= "" then
         task.spawn(function()
             local s = Instance.new("Sound")
@@ -304,114 +564,60 @@ local function liberarAcesso()
     end
     local ok, err = executarScript()
     if not ok then
-        Notify(T("Erro ao abrir o hub: ", "Error opening hub: ", "Error al abrir el hub: ") .. tostring(err), 6, Color3.fromRGB(255, 80, 80))
         _opened = false
+        warn("[Orion Hub]", err)
     end
 end
 
-local _shortIdx = 0
-local function copyShortLink()
-    local links = INTERNAL_CONFIG.ShortLinks
-    _shortIdx = (_shortIdx % #links) + 1
-    setclipboard(links[_shortIdx])
-    Notify(T("Link da Key Free copiado!", "Free key link copied!", "¡Enlace Key Free copiado!"), 4, Color3.fromRGB(16, 185, 129))
-end
-
-local function copyDiscord()
-    setclipboard(INTERNAL_CONFIG.DiscordInvite)
-    Notify(T("Discord copiado!", "Discord copied!", "¡Discord copiado!"), 4, Color3.fromRGB(16, 185, 129))
-end
-
--- ===== ACESSO (digitar qualquer key) =====
-local SecA = TabAcesso:AddSection(T("Entrar no Orion Hub", "Enter Orion Hub", "Entrar a Orion Hub"), true)
-local inputKey = ""
-SecA:AddInput({
-    Title = T("Senha", "Password", "Contraseña"),
-    Content = T("Master, Premium ou Free", "Master, Premium or Free", "Master, Premium o Free"),
-    Default = "",
-    Callback = function(v) inputKey = v end,
-})
-SecA:AddButton({
-    Title = T("Confirmar", "Confirm", "Confirmar"),
-    Callback = function()
-        local typed = cleanKey(inputKey)
-        if typed == "" then
-            Notify(T("Digite a senha", "Enter the password", "Ingresa la contraseña"), 3, Color3.fromRGB(255, 150, 80))
-            return
-        end
-        local ok, kind = isValidKey(typed)
-        if not ok then
-            if kind == "expired" then
-                Notify(T("Key Free expirada. Pegue outra na aba Key Free.", "Free key expired. Get another in Key Free tab.", "Key Free expirada."), 4, Color3.fromRGB(255, 80, 80))
-            else
-                Notify(T("Senha incorreta", "Wrong password", "Contraseña incorrecta") .. " [" .. typed:sub(1, 12) .. "]", 4, Color3.fromRGB(255, 80, 80))
-            end
-            return
-        end
-        if kind == "master" then
-            _G.__OrionSession = { type = "master", label = "Master", expiresAt = nil }
-            Notify(T("Master OK", "Master OK", "Master OK"), 2, Color3.fromRGB(16, 185, 129))
-        elseif kind == "premium" then
-            dataManager:save("PremiumKey.json", { key = typed, permanent = true })
-            pcall(function()
-                if isfile(FOLDER_NAME .. "/FreeKeySession.json") then delfile(FOLDER_NAME .. "/FreeKeySession.json") end
-            end)
-            _G.__OrionSession = { type = "premium", label = "Premium", expiresAt = nil }
-            Notify(T("Premium ativado", "Premium activated", "Premium activado"), 2, Color3.fromRGB(16, 185, 129))
+local function tryLogin()
+    local typed = cleanKey(input.Text)
+    if typed == "" then
+        notifyCustom(T("Digite a senha", "Enter the password", "Ingresa la contraseña"), Color3.fromRGB(255, 150, 80))
+        return
+    end
+    local ok, kind = isValidKey(typed)
+    if not ok then
+        if kind == "expired" then
+            notifyCustom(T("Key Free expirada", "Free key expired", "Key Free expirada"), Color3.fromRGB(255, 80, 80))
         else
-            local session = dataManager:load("FreeKeySession.json")
-            local expiresAt
-            if session and cleanKey(session.key) == typed and type(session.expiresAt) == "number" and now() <= session.expiresAt then
-                expiresAt = session.expiresAt
-            else
-                expiresAt = now() + FREE_SECONDS
-            end
-            dataManager:save("FreeKeySession.json", { key = typed, startedAt = now(), expiresAt = expiresAt, hours = FREE_HOURS })
-            _G.__OrionSession = { type = "free", label = "Free", expiresAt = expiresAt }
-            Notify(T("Acesso liberado", "Access granted", "Acceso liberado"), 2, Color3.fromRGB(16, 185, 129))
+            notifyCustom(T("Senha incorreta", "Wrong password", "Contraseña incorrecta"), Color3.fromRGB(255, 80, 80))
         end
-        task.wait(0.5)
-        liberarAcesso()
-    end,
-})
-
--- ===== KEY FREE =====
-local SecF = TabFree:AddSection(T("Key Free", "Key Free", "Key Free"), true)
-SecF:AddButton({
-    Title = T("Obter Key Free", "Get Free Key", "Obtener Key Free"),
-    Callback = copyShortLink,
-})
-
--- ===== KEY PREMIUM =====
-local SecP = TabPrem:AddSection(T("Key Premium", "Key Premium", "Key Premium"), true)
-SecP:AddButton({
-    Title = T("Falar no Discord", "Talk on Discord", "Hablar en Discord"),
-    Callback = copyDiscord,
-})
-
--- ===== CONFIG / IDIOMA =====
-local SecC = TabConfig:AddSection(T("Idioma", "Language", "Idioma"), true)
-local function pickLang(code, label)
-    saveLang(code)
-    Notify(T("Idioma: ", "Language: ", "Idioma: ") .. label .. T(" — reabra o script para aplicar tudo", " — reopen script to apply fully", " — reabre el script para aplicar todo"), 4, Color3.fromRGB(16, 185, 129))
+        return
+    end
+    if kind == "master" then
+        _G.__OrionSession = { type = "master", label = "Master", expiresAt = nil }
+        notifyCustom("Master OK", GREEN)
+    elseif kind == "premium" then
+        dataManager:save("PremiumKey.json", { key = typed, permanent = true })
+        pcall(function()
+            if isfile(FOLDER_NAME .. "/FreeKeySession.json") then delfile(FOLDER_NAME .. "/FreeKeySession.json") end
+        end)
+        _G.__OrionSession = { type = "premium", label = "Premium", expiresAt = nil }
+        notifyCustom(T("Premium ativado", "Premium activated", "Premium activado"), GREEN)
+    else
+        local session = dataManager:load("FreeKeySession.json")
+        local expiresAt
+        if session and cleanKey(session.key) == typed and type(session.expiresAt) == "number" and now() <= session.expiresAt then
+            expiresAt = session.expiresAt
+        else
+            expiresAt = now() + FREE_SECONDS
+        end
+        dataManager:save("FreeKeySession.json", { key = typed, startedAt = now(), expiresAt = expiresAt, hours = FREE_HOURS })
+        _G.__OrionSession = { type = "free", label = "Free", expiresAt = expiresAt }
+        notifyCustom(T("Acesso liberado", "Access granted", "Acceso liberado"), GREEN)
+    end
+    task.wait(0.4)
+    liberarAcesso()
 end
-SecC:AddButton({
-    Title = "🇧🇷  Português",
-    Callback = function() pickLang("pt", "Português") end,
-})
-SecC:AddButton({
-    Title = "🇺🇸  English",
-    Callback = function() pickLang("en", "English") end,
-})
-SecC:AddButton({
-    Title = "🇪🇸  Español",
-    Callback = function() pickLang("es", "Español") end,
-})
 
-_G.Window = Window
-_G.Notify = Notify
-_G.CFG_THEME = CFG_THEME
-
-task.delay(0.4, function()
-    Notify(T("Digite sua key na aba Acesso", "Enter your key in Access tab", "Ingresa tu key en Acceso"), 4, Color3.fromRGB(100, 220, 180))
+confirm.MouseButton1Click:Connect(tryLogin)
+input.FocusLost:Connect(function(enter)
+    if enter then tryLogin() end
 end)
+
+main.Size = UDim2.fromOffset(350, 440)
+main.BackgroundTransparency = 0.25
+TweenService:Create(main, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+    Size = UDim2.fromOffset(380, 470),
+    BackgroundTransparency = 0,
+}):Play()
