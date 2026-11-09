@@ -290,7 +290,7 @@ local Window = OrionLib:Window({
 local Float = OrionLib:FloatBtn({
     Icon       = CFG_ICON,
     Color      = Color3.fromRGB(16, 185, 129),
-    ColorDark  = Color3.fromRGB(10, 40, 30),
+    ColorDark  = Color3.fromRGB(10, 10, 12),
     Size       = 46,
     MainHolder = Window._holder,
 })
