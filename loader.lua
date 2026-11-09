@@ -6,7 +6,6 @@ _G.ifucantseeanyprintthenufailedtobypassthisenvlogger = true
 _G.ANTIENVLOGGERmadebyclickdetectoronneverwon = true
 
 local a = getgenv().ANTIENVLOGBYNEVERWON2 + _G.ANTIENVLOGBYNEVERWON1
-
 if _G.ANTIENVLOGBYNEVERWON1 and getgenv().ANTIENVLOGBYNEVERWON2 and _G.ANTIENVLOGBYNEVERWON1 == 1 and getgenv().ANTIENVLOGBYNEVERWON2 == 1 then
     if a and a ~= 1 or a ~= 3 then
         a = a + a
@@ -25,10 +24,15 @@ if _G.ANTIENVLOGBYNEVERWON1 and getgenv().ANTIENVLOGBYNEVERWON2 and _G.ANTIENVLO
     end
 end
 --// ========================================
-local HUB_NAME   = "Orion Hub"
+local HUB_NAME = "Orion Hub"
 local CONFIG_URL = "https://raw.githubusercontent.com/alphacellsmart/Orion/main/Config/Head.lua"
-local CONFIG_URL_FALLBACK = "https://raw.githubusercontent.com/alphacellsmart/Orion/main/Config/Head.lua"
---// ========================================
+local UNIVERSAL_URL = "https://raw.githubusercontent.com/alphacellsmart/Orion/main/Games/Universal/Loader.lua"
+
+local MASTER_KEY  = "ORION-MASTER-BARAO-2026"
+local PREMIUM_KEY = "ORION-PREMIUM-BARAO-PERM"
+local FREE_HOURS  = 12
+local FREE_SECONDS = FREE_HOURS * 3600
+
 local INTERNAL_CONFIG = {
     ShortLinks = {
         "https://snet.blog/w8otovu",
@@ -38,13 +42,9 @@ local INTERNAL_CONFIG = {
         "https://snet.blog/akg7v3w",
     },
     DiscordInvite = "https://discord.gg/1552416753491906650",
-    DiscordId     = "1552416753491906650",
-    MasterKey     = "ORION-MASTER-BARAO-2026",
-    FreeKeyHours  = 12, -- validade das keys do encurtador
 }
---// ========================================
--- Idioma PT / EN / ES
---// ========================================
+
+--// idioma
 local _lang = "pt"
 pcall(function()
     local locale = (game:GetService("LocalizationService").RobloxLocaleId or ""):lower()
@@ -75,83 +75,51 @@ local function saveLang(l)
     end)
 end
 
---// ========================================
-local HttpService  = (cloneref or function(x) return x end)(game:GetService("HttpService"))
-local Players      = game:GetService("Players")
-local CoreGui      = game:GetService("CoreGui")
-local LocalPlayer  = Players.LocalPlayer
-local FOLDER_NAME  = "Orion_Hub"
+local HttpService = (cloneref or function(x) return x end)(game:GetService("HttpService"))
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local LocalPlayer = Players.LocalPlayer
+local FOLDER_NAME = "Orion_Hub"
 
-local RAW_CONFIG = nil
-
-local function fetchOne(url)
+local function fetchJSON(url)
     local ok, raw = pcall(function() return game:HttpGet(url .. "?t=" .. tostring(os.time()), true) end)
     if not ok or type(raw) ~= "string" or raw == "" then
         ok, raw = pcall(function() return game:HttpGet(url, true) end)
-        if not ok or type(raw) ~= "string" or raw == "" then return nil end
     end
+    if not ok or type(raw) ~= "string" or raw == "" then return nil end
     raw = raw:gsub("^\239\187\191", "")
-    RAW_CONFIG = raw
     local dok, data = pcall(function() return HttpService:JSONDecode(raw) end)
     if dok and type(data) == "table" then return data end
-    local cleaned = raw
-        :gsub("/%*.-%*/", "")
-        :gsub("\n%s*//[^\n]*", "\n")
-        :gsub("\n%s*%-%-[^\n]*", "\n")
-        :gsub(",%s*([}%]])", "%1")
+    local cleaned = raw:gsub("/%*.-%*/", ""):gsub("\n%s*//[^\n]*", "\n"):gsub("\n%s*%-%-[^\n]*", "\n"):gsub(",%s*([}%]])", "%1")
     dok, data = pcall(function() return HttpService:JSONDecode(cleaned) end)
     if dok and type(data) == "table" then return data end
     return nil
 end
 
-local function fetchJSON(...)
-    for _, url in ipairs({...}) do
-        local data = fetchOne(url)
-        if data then return data end
+local externalConfig = fetchJSON(CONFIG_URL)
+local CFG_ICON  = (externalConfig and externalConfig.OpenIcon) or "rbxassetid://7733960981"
+local CFG_THEME = (externalConfig and externalConfig.ThemeSelect) or "Carbon"
+local CFG_SND   = (externalConfig and externalConfig.SoundId) or ""
+local CFG_VOL   = (externalConfig and externalConfig.SoundVolume) or 1
+
+if externalConfig then
+    if type(externalConfig.MasterKey) == "string" and externalConfig.MasterKey ~= "" then
+        MASTER_KEY = externalConfig.MasterKey
     end
-    return nil
+    if type(externalConfig.PremiumKey) == "string" and externalConfig.PremiumKey ~= "" then
+        PREMIUM_KEY = externalConfig.PremiumKey
+    end
 end
 
-local externalConfig = fetchJSON(CONFIG_URL, CONFIG_URL_FALLBACK)
-
-local CFG_ICON  = (externalConfig and externalConfig["OpenIcon"]) or "rbxassetid://7733960981"
-local CFG_THEME = (externalConfig and externalConfig["ThemeSelect"]) or "darker"
-local CFG_SND   = (externalConfig and externalConfig["SoundId"]) or ""
-local CFG_VOL   = (externalConfig and externalConfig["SoundVolume"]) or 1
-
--- Keys: free (12h) + 1 premium permanente
-local CFG_FREE = {}
-local CFG_PREMIUM = nil
-local CFG_KEYS_COUNT = 0
-local FREE_SECONDS = (INTERNAL_CONFIG.FreeKeyHours or 12) * 3600
-
+local FREE_KEYS = {}
 local function addFree(k)
     k = tostring(k or ""):match("^%s*(.-)%s*$")
-    if k ~= "" and not CFG_FREE[k] then
-        CFG_FREE[k] = true
-        CFG_KEYS_COUNT = CFG_KEYS_COUNT + 1
-    end
+    if k ~= "" then FREE_KEYS[k] = true end
 end
-
-if type(externalConfig) == "table" then
-    if externalConfig.PremiumKey then
-        CFG_PREMIUM = tostring(externalConfig.PremiumKey):match("^%s*(.-)%s*$")
-        CFG_KEYS_COUNT = CFG_KEYS_COUNT + 1
-    end
-    if type(externalConfig.FreeKeys) == "table" then
-        for _, k in pairs(externalConfig.FreeKeys) do addFree(k) end
-    end
-    if type(externalConfig.Keys) == "table" then
-        for _, k in pairs(externalConfig.Keys) do addFree(k) end
-    end
+if externalConfig and type(externalConfig.FreeKeys) == "table" then
+    for _, k in pairs(externalConfig.FreeKeys) do addFree(k) end
 end
-if not CFG_PREMIUM then
-    CFG_PREMIUM = "ORION-PREMIUM-BARAO-PERM"
-    CFG_KEYS_COUNT = CFG_KEYS_COUNT + 1
-end
-
--- fallback free keys se Head nao tiver
-if next(CFG_FREE) == nil then
+if next(FREE_KEYS) == nil then
     for _, k in ipairs({
         "KEY-ALFA-7X-2-B-Z9M4Q",
         "KEY-BETA-3Y-5-C-X7K2V",
@@ -161,28 +129,20 @@ if next(CFG_FREE) == nil then
     }) do addFree(k) end
 end
 
-local MASTER_KEY = INTERNAL_CONFIG.MasterKey
-if externalConfig and externalConfig.MasterKey then
-    MASTER_KEY = tostring(externalConfig.MasterKey)
-end
-
---// Data
 local DataManager = {}
 DataManager.__index = DataManager
 function DataManager.new()
     local self = setmetatable({}, DataManager)
-    if not isfolder(FOLDER_NAME) then makefolder(FOLDER_NAME) end
+    pcall(function() if not isfolder(FOLDER_NAME) then makefolder(FOLDER_NAME) end end)
     return self
 end
-function DataManager:save(fileName, data)
-    pcall(function()
-        writefile(FOLDER_NAME .. "/" .. fileName, HttpService:JSONEncode(data))
-    end)
+function DataManager:save(name, data)
+    pcall(function() writefile(FOLDER_NAME .. "/" .. name, HttpService:JSONEncode(data)) end)
 end
-function DataManager:load(fileName)
-    local filePath = FOLDER_NAME .. "/" .. fileName
-    if not isfile(filePath) then return nil end
-    local ok, result = pcall(function() return HttpService:JSONDecode(readfile(filePath)) end)
+function DataManager:load(name)
+    local path = FOLDER_NAME .. "/" .. name
+    if not isfile or not isfile(path) then return nil end
+    local ok, result = pcall(function() return HttpService:JSONDecode(readfile(path)) end)
     return ok and result or nil
 end
 local dataManager = DataManager.new()
@@ -191,59 +151,59 @@ local function now()
     return os.time()
 end
 
--- valida key
--- premium = permanente
--- free = 12 horas a partir do primeiro uso salvo localmente
+local function cleanKey(s)
+    return tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", ""):gsub("[\r\n]", "")
+end
+
+-- master / premium / free
 local function isValidKey(inputKey)
-    if not inputKey then return false, "empty" end
-    local cleaned = tostring(inputKey):match("^%s*(.-)%s*$")
+    local cleaned = cleanKey(inputKey)
     if cleaned == "" then return false, "empty" end
 
-    -- Master: acesso total, NUNCA salva sessao (sempre pede de novo)
-    if MASTER_KEY and cleaned == tostring(MASTER_KEY) then
+    if cleaned == cleanKey(MASTER_KEY) then
         return true, "master"
     end
-
-    if CFG_PREMIUM and cleaned == CFG_PREMIUM then
+    if cleaned == cleanKey(PREMIUM_KEY) then
         return true, "premium"
     end
-
-    if CFG_FREE[cleaned] then
+    if FREE_KEYS[cleaned] then
         local saved = dataManager:load("FreeKeySession.json")
-        if saved and saved.key == cleaned and type(saved.expiresAt) == "number" then
+        if saved and cleanKey(saved.key) == cleaned and type(saved.expiresAt) == "number" then
             if now() > saved.expiresAt then
                 return false, "expired"
             end
             return true, "free"
         end
-        -- primeira vez: ok (sera gravado no confirm)
         return true, "free_new"
     end
-
     return false, "invalid"
 end
 
 local function hasSavedKey()
-    -- premium salvo
     local prem = dataManager:load("PremiumKey.json")
-    if prem and prem.key and prem.key == CFG_PREMIUM then
+    if prem and cleanKey(prem.key) == cleanKey(PREMIUM_KEY) then
         return true, "premium"
     end
-    -- free com sessao valida
     local free = dataManager:load("FreeKeySession.json")
-    if free and free.key and CFG_FREE[free.key] and type(free.expiresAt) == "number" then
-        if now() <= free.expiresAt then
-            return true, "free"
-        end
+    if free and FREE_KEYS[cleanKey(free.key)] and type(free.expiresAt) == "number" and now() <= free.expiresAt then
+        return true, "free"
     end
     return false
 end
 
-local UNIVERSAL_URL = "https://raw.githubusercontent.com/alphacellsmart/Orion/main/Games/Universal/Loader.lua"
-
 local function executarScript()
     _G.__OrionHub_Auth = true
-    loadstring(game:HttpGet(UNIVERSAL_URL, true))()
+    local ok, err = pcall(function()
+        local src = game:HttpGet(UNIVERSAL_URL, true)
+        assert(type(src) == "string" and #src > 100, "Universal vazio")
+        local fn, cerr = loadstring(src)
+        assert(fn, tostring(cerr))
+        fn()
+    end)
+    if not ok then
+        warn("[Orion Hub] Erro ao carregar Universal:", err)
+    end
+    return ok, err
 end
 
 do
@@ -260,14 +220,9 @@ do
     end
 end
 
---// UI lib
 local function getExecutorName()
     if identifyexecutor then
         local ok, name = pcall(identifyexecutor)
-        if ok and name and name ~= "" then return name end
-    end
-    if getexecutorname then
-        local ok, name = pcall(getexecutorname)
         if ok and name and name ~= "" then return name end
     end
     return "Unknown"
@@ -277,10 +232,10 @@ local OrionLib = loadstring(game:HttpGet("https://win-ui-online.vercel.app/Lib/S
 
 local function Notify(content, delay, color)
     return OrionLib:MakeNotify({
-        Title   = HUB_NAME,
+        Title = HUB_NAME,
         Content = content or "",
-        Color   = color or Color3.fromRGB(255, 255, 255),
-        Delay   = delay or 4,
+        Color = color or Color3.fromRGB(255, 255, 255),
+        Delay = delay or 4,
     })
 end
 
@@ -290,121 +245,173 @@ pcall(function()
 end)
 
 local Window = OrionLib:Window({
-    Title       = HUB_NAME .. (gameName ~= "" and (" | " .. gameName) or "") .. " | " .. getExecutorName(),
-    Color       = Color3.fromRGB(16, 185, 129),
-    Version     = 1,
+    Title = HUB_NAME .. (gameName ~= "" and (" | " .. gameName) or "") .. " | " .. getExecutorName(),
+    Color = Color3.fromRGB(16, 185, 129),
+    Version = 1,
     ThemePreset = CFG_THEME,
 })
 
-local Float = OrionLib:FloatBtn({
-    Icon       = CFG_ICON,
-    Color      = Color3.fromRGB(16, 185, 129),
-    ColorDark  = Color3.fromRGB(10, 10, 12),
-    Size       = 46,
-    MainHolder = Window._holder,
-})
-Window:RegisterFloat(Float)
+pcall(function()
+    local Float = OrionLib:FloatBtn({
+        Icon = CFG_ICON,
+        Color = Color3.fromRGB(16, 185, 129),
+        ColorDark = Color3.fromRGB(10, 10, 12),
+        Size = 46,
+        MainHolder = Window._holder,
+    })
+    Window:RegisterFloat(Float)
+end)
 
-local TabKey = Window:AddTab({
+local TabAcesso = Window:AddTab({
     Name = T("Acesso", "Access", "Acceso"),
     Icon = "rbxassetid://7733965118",
 })
-
--- Idioma compacto (canto / topo da aba)
-local SecLang = TabKey:AddSection(T("Idioma", "Language", "Idioma"), true)
-SecLang:AddButton({
-    Title = "🇧🇷 PT",
-    Callback = function()
-        saveLang("pt")
-        Notify("Português", 2, Color3.fromRGB(16, 185, 129))
-    end,
+local TabFree = Window:AddTab({
+    Name = T("Key Free", "Key Free", "Key Free"),
+    Icon = "rbxassetid://7743878857",
 })
-SecLang:AddButton({
-    Title = "🇺🇸 EN",
-    Callback = function()
-        saveLang("en")
-        Notify("English", 2, Color3.fromRGB(16, 185, 129))
-    end,
+local TabPrem = Window:AddTab({
+    Name = T("Key Premium", "Key Premium", "Key Premium"),
+    Icon = "rbxassetid://127843403295538",
 })
-SecLang:AddButton({
-    Title = "🇪🇸 ES",
-    Callback = function()
-        saveLang("es")
-        Notify("Español", 2, Color3.fromRGB(16, 185, 129))
-    end,
+local TabConfig = Window:AddTab({
+    Name = T("Config", "Config", "Config"),
+    Icon = "rbxassetid://7734053495",
 })
 
-local SecKeys = TabKey:AddSection(T("Keys", "Keys", "Keys"), true)
+local _opened = false
+local function liberarAcesso()
+    if _opened then return end
+    _opened = true
+    pcall(function() Window:DestroyGui() end)
+    pcall(function() if Window._holder then Window._holder:Destroy() end end)
+    pcall(function()
+        for _, gui in ipairs(CoreGui:GetChildren()) do
+            if gui.Name:find("WinUI") or gui.Name:find("Orion") then pcall(function() gui:Destroy() end) end
+        end
+    end)
+    task.wait(0.15)
+    if CFG_SND ~= "" then
+        task.spawn(function()
+            local s = Instance.new("Sound")
+            s.SoundId = CFG_SND
+            s.Volume = CFG_VOL
+            s.Parent = game:GetService("SoundService")
+            pcall(function() if not s.IsLoaded then s.Loaded:Wait() end end)
+            s:Play()
+            game:GetService("Debris"):AddItem(s, 15)
+        end)
+    end
+    local ok, err = executarScript()
+    if not ok then
+        Notify(T("Erro ao abrir o hub: ", "Error opening hub: ", "Error al abrir el hub: ") .. tostring(err), 6, Color3.fromRGB(255, 80, 80))
+        _opened = false
+    end
+end
 
-SecKeys:AddButton({
-    Title = T("Key Free", "Key Free", "Key Free"),
-    Callback = copyShortLink,
-})
+local _shortIdx = 0
+local function copyShortLink()
+    local links = INTERNAL_CONFIG.ShortLinks
+    _shortIdx = (_shortIdx % #links) + 1
+    setclipboard(links[_shortIdx])
+    Notify(T("Link da Key Free copiado!", "Free key link copied!", "¡Enlace Key Free copiado!"), 4, Color3.fromRGB(16, 185, 129))
+end
 
-SecKeys:AddButton({
-    Title = T("Key Premium", "Key Premium", "Key Premium"),
-    Callback = copyDiscord,
-})
+local function copyDiscord()
+    setclipboard(INTERNAL_CONFIG.DiscordInvite)
+    Notify(T("Discord copiado!", "Discord copied!", "¡Discord copiado!"), 4, Color3.fromRGB(16, 185, 129))
+end
 
+-- ===== ACESSO (digitar qualquer key) =====
+local SecA = TabAcesso:AddSection(T("Entrar no Orion Hub", "Enter Orion Hub", "Entrar a Orion Hub"), true)
 local inputKey = ""
-SecKeys:AddInput({
+SecA:AddInput({
     Title = T("Senha", "Password", "Contraseña"),
-    Content = T("Cole a key aqui", "Paste key here", "Pega la key aquí"),
+    Content = T("Master, Premium ou Free", "Master, Premium or Free", "Master, Premium o Free"),
     Default = "",
-    Callback = function(value) inputKey = value end,
+    Callback = function(v) inputKey = v end,
 })
-
-SecKeys:AddButton({
+SecA:AddButton({
     Title = T("Confirmar", "Confirm", "Confirmar"),
     Callback = function()
-        if not inputKey or inputKey == "" then
-            Notify(T("Digite uma senha", "Enter a password", "Ingresa una contraseña"), 3, Color3.fromRGB(255, 150, 80))
+        local typed = cleanKey(inputKey)
+        if typed == "" then
+            Notify(T("Digite a senha", "Enter the password", "Ingresa la contraseña"), 3, Color3.fromRGB(255, 150, 80))
             return
         end
-        local ok, kind = isValidKey(inputKey)
+        local ok, kind = isValidKey(typed)
         if not ok then
-            local msg
             if kind == "expired" then
-                msg = T("Key Free expirada. Pegue outra.", "Free key expired. Get a new one.", "Key Free expirada.")
+                Notify(T("Key Free expirada. Pegue outra na aba Key Free.", "Free key expired. Get another in Key Free tab.", "Key Free expirada."), 4, Color3.fromRGB(255, 80, 80))
             else
-                msg = T("Senha incorreta", "Wrong password", "Contraseña incorrecta")
+                Notify(T("Senha incorreta", "Wrong password", "Contraseña incorrecta") .. " [" .. typed:sub(1, 12) .. "]", 4, Color3.fromRGB(255, 80, 80))
             end
-            Notify(msg, 4, Color3.fromRGB(255, 80, 80))
             return
         end
-        local cleaned = tostring(inputKey):match("^%s*(.-)%s*$")
         if kind == "master" then
             _G.__OrionSession = { type = "master", label = "Master", expiresAt = nil }
-            Notify(T("Master OK (pede de novo na próxima)", "Master OK (asks again next time)", "Master OK"), 3, Color3.fromRGB(16, 185, 129))
+            Notify(T("Master OK", "Master OK", "Master OK"), 2, Color3.fromRGB(16, 185, 129))
         elseif kind == "premium" then
-            dataManager:save("PremiumKey.json", { key = cleaned, permanent = true })
+            dataManager:save("PremiumKey.json", { key = typed, permanent = true })
             pcall(function()
                 if isfile(FOLDER_NAME .. "/FreeKeySession.json") then delfile(FOLDER_NAME .. "/FreeKeySession.json") end
             end)
             _G.__OrionSession = { type = "premium", label = "Premium", expiresAt = nil }
-            Notify(T("Premium ativado", "Premium activated", "Premium activado"), 3, Color3.fromRGB(16, 185, 129))
+            Notify(T("Premium ativado", "Premium activated", "Premium activado"), 2, Color3.fromRGB(16, 185, 129))
         else
             local session = dataManager:load("FreeKeySession.json")
             local expiresAt
-            if session and session.key == cleaned and type(session.expiresAt) == "number" and now() <= session.expiresAt then
+            if session and cleanKey(session.key) == typed and type(session.expiresAt) == "number" and now() <= session.expiresAt then
                 expiresAt = session.expiresAt
             else
                 expiresAt = now() + FREE_SECONDS
             end
-            dataManager:save("FreeKeySession.json", {
-                key = cleaned,
-                startedAt = now(),
-                expiresAt = expiresAt,
-                hours = INTERNAL_CONFIG.FreeKeyHours or 12,
-            })
+            dataManager:save("FreeKeySession.json", { key = typed, startedAt = now(), expiresAt = expiresAt, hours = FREE_HOURS })
             _G.__OrionSession = { type = "free", label = "Free", expiresAt = expiresAt }
-            Notify(T("Acesso liberado", "Access granted", "Acceso liberado"), 3, Color3.fromRGB(16, 185, 129))
+            Notify(T("Acesso liberado", "Access granted", "Acceso liberado"), 2, Color3.fromRGB(16, 185, 129))
         end
-        task.wait(0.8)
+        task.wait(0.5)
         liberarAcesso()
     end,
+})
+
+-- ===== KEY FREE =====
+local SecF = TabFree:AddSection(T("Key Free", "Key Free", "Key Free"), true)
+SecF:AddButton({
+    Title = T("Obter Key Free", "Get Free Key", "Obtener Key Free"),
+    Callback = copyShortLink,
+})
+
+-- ===== KEY PREMIUM =====
+local SecP = TabPrem:AddSection(T("Key Premium", "Key Premium", "Key Premium"), true)
+SecP:AddButton({
+    Title = T("Falar no Discord", "Talk on Discord", "Hablar en Discord"),
+    Callback = copyDiscord,
+})
+
+-- ===== CONFIG / IDIOMA =====
+local SecC = TabConfig:AddSection(T("Idioma", "Language", "Idioma"), true)
+local function pickLang(code, label)
+    saveLang(code)
+    Notify(T("Idioma: ", "Language: ", "Idioma: ") .. label .. T(" — reabra o script para aplicar tudo", " — reopen script to apply fully", " — reabre el script para aplicar todo"), 4, Color3.fromRGB(16, 185, 129))
+end
+SecC:AddButton({
+    Title = "🇧🇷  Português",
+    Callback = function() pickLang("pt", "Português") end,
+})
+SecC:AddButton({
+    Title = "🇺🇸  English",
+    Callback = function() pickLang("en", "English") end,
+})
+SecC:AddButton({
+    Title = "🇪🇸  Español",
+    Callback = function() pickLang("es", "Español") end,
 })
 
 _G.Window = Window
 _G.Notify = Notify
 _G.CFG_THEME = CFG_THEME
+
+task.delay(0.4, function()
+    Notify(T("Digite sua key na aba Acesso", "Enter your key in Access tab", "Ingresa tu key en Acceso"), 4, Color3.fromRGB(100, 220, 180))
+end)
