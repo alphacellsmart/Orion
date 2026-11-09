@@ -3595,13 +3595,23 @@ local function mdConv(t)
             end
             local fpsV = statCard(1, "FPS")
             local pingV = statCard(2, "PING")
-            local sesV = statCard(3, "EXECUÇÕES")
+            local sesV = statCard(3, "KEY")
             do
                 local n = 0
                 pcall(function() n = tonumber(_G.__OrionSecGet("__execCount")) or 0 end)
                 n = n + 1
                 pcall(function() _G.__OrionSecSet("__execCount", n) end)
-                sesV.Text = tostring(n)
+                do
+                    local ses = _G.__OrionSession
+                    if ses and ses.type == "premium" then sesV.Text = "Premium"
+                    elseif ses and ses.type == "master" then sesV.Text = "Master"
+                    elseif ses and ses.type == "free" and type(ses.expiresAt) == "number" then
+                        local left = math.max(0, ses.expiresAt - os.time())
+                        sesV.Text = string.format("%02d:%02d:%02d", math.floor(left/3600), math.floor((left%3600)/60), left%60)
+                    else
+                        sesV.Text = tostring(n)
+                    end
+                end
             end
 
             -- ===== EXECUTOR =====
