@@ -1369,7 +1369,7 @@ function OrionLib:Window(cfg)
     logo.Size = UDim2.new(1, -6, 1, -6)
     logo.Position = UDim2.new(0, 3, 0, 3)
     logo.BackgroundTransparency = 1
-    logo.Image = "rbxassetid://7733960981"; logo.ImageColor3 = Color3.fromRGB(16,185,129)
+    pcall(function() local url="https://raw.githubusercontent.com/alphacellsmart/Orion/main/assets/orion-logo.png"; local ok,b=pcall(function() return game:HttpGet(url,true) end); if ok and b and writefile then pcall(function() if not isfolder("Orion_Hub") then makefolder("Orion_Hub") end; writefile("Orion_Hub/orion-logo.png",b) end); local af=getcustomasset or getsynasset; if af then local o2,a=pcall(af,"Orion_Hub/orion-logo.png"); if o2 and a then logo.Image=a; return end end end; logo.Image=url end); logo.ImageColor3=Color3.new(1,1,1)
     logo.ScaleType = Enum.ScaleType.Fit
     logo.Parent = logoFrame
 
@@ -6078,7 +6078,36 @@ function OrionLib:FloatBtn(cfg)
         end
     end)
     frame.BackgroundColor3=Color3.fromRGB(10,10,12); frame.BorderSizePixel=0; frame.Parent=screen; corner(frame,13); stroke(frame,Color3.fromRGB(16,185,129),.2,1.4)
-    local image=Instance.new("TextLabel"); image.Name="Logo"; image.Size=UDim2.new(1,-6,1,-6); image.Position=UDim2.new(0,3,0,3); image.BackgroundTransparency=1; image.Text="◈"; image.Font=Enum.Font.GothamBold; image.TextSize=math.floor((tonumber(cfg.Size) or 46)*0.48); image.TextColor3=Color3.fromRGB(16,185,129); image.TextXAlignment=Enum.TextXAlignment.Center; image.TextYAlignment=Enum.TextYAlignment.Center; image.Parent=frame
+    local image=Instance.new("ImageLabel"); image.Name="Logo"; image.Size=UDim2.new(1,-8,1,-8); image.Position=UDim2.new(0,4,0,4); image.BackgroundTransparency=1; image.ScaleType=Enum.ScaleType.Fit; image.ZIndex=6; image.Parent=frame
+    pcall(function()
+        local url = "https://raw.githubusercontent.com/alphacellsmart/Orion/main/assets/orion-logo.png"
+        local ok, bytes = pcall(function() return game:HttpGet(url, true) end)
+        if ok and type(bytes)=="string" and #bytes>100 and writefile then
+            pcall(function() if isfolder and not isfolder("Orion_Hub") and makefolder then makefolder("Orion_Hub") end end)
+            pcall(function() writefile("Orion_Hub/orion-logo.png", bytes) end)
+            local assetFn = (type(getcustomasset)=="function" and getcustomasset) or (type(getsynasset)=="function" and getsynasset)
+            if assetFn then
+                local ok2, asset = pcall(assetFn, "Orion_Hub/orion-logo.png")
+                if ok2 and asset then image.Image = asset; return end
+            end
+        end
+        image.Image = url
+    end)
+    -- brilho passando no float
+    do
+        local clip = Instance.new("Frame"); clip.BackgroundTransparency=1; clip.ClipsDescendants=true; clip.Size=UDim2.fromScale(1,1); clip.ZIndex=7; clip.Parent=frame
+        local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,13); c.Parent=clip
+        local sh=Instance.new("Frame"); sh.BackgroundColor3=Color3.fromRGB(16,185,129); sh.BackgroundTransparency=0.7; sh.BorderSizePixel=0; sh.Size=UDim2.new(0.3,0,1.5,0); sh.Position=UDim2.new(-0.5,0,-0.2,0); sh.Rotation=20; sh.ZIndex=8; sh.Parent=clip
+        local g=Instance.new("UIGradient"); g.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(0.5,0.25),NumberSequenceKeypoint.new(1,1)}); g.Parent=sh
+        task.spawn(function()
+            local TS=game:GetService("TweenService")
+            while clip.Parent do
+                sh.Position=UDim2.new(-0.6,0,-0.2,0)
+                local tw=TS:Create(sh,TweenInfo.new(1.8,Enum.EasingStyle.Quad),{Position=UDim2.new(1.2,0,-0.2,0)})
+                tw:Play(); tw.Completed:Wait(); task.wait(2.2)
+            end
+        end)
+    end
     local hit=button(frame,"FloatHit",UDim2.new(1,0,1,0),UDim2.new(),Color3.new()); hit.BackgroundTransparency=1
     -- rosto do botao principal: fica na frente dos atalhos, que nascem/somem por tras dele
     frame.BackgroundTransparency=1
