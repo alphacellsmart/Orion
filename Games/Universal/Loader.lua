@@ -6108,12 +6108,37 @@ function OrionLib:FloatBtn(cfg)
     -- o botao de hit cobre o frame, entao o arrasto precisa ser ligado nele
     local spawnPos = frame.Position -- posicao de nascimento (ao lado da interface)
     local startPos, dragged = nil, false
+    local function clampFloat()
+        pcall(function()
+            local vp = screen.AbsoluteSize
+            local m = 8
+            local ap = frame.AbsolutePosition
+            local cx = math.clamp(ap.X, m, math.max(m, vp.X - sz - m))
+            local cy = math.clamp(ap.Y, m, math.max(m, vp.Y - sz - m))
+            frame.Position = UDim2.new(0, cx, 0, cy)
+        end)
+    end
+    task.spawn(function()
+        while frame.Parent do
+            clampFloat()
+            task.wait(0.2)
+        end
+    end)
     hit.InputBegan:Connect(function(io)
         if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then startPos=io.Position; dragged=false end
     end)
     UserInputService.InputChanged:Connect(function(io)
         if startPos and (io.UserInputType==Enum.UserInputType.MouseMovement or io.UserInputType==Enum.UserInputType.Touch) then
             if (io.Position-startPos).Magnitude>6 then dragged=true end
+            if dragged then
+                pcall(function()
+                    local vp = screen.AbsoluteSize
+                    local m = 8
+                    local x = math.clamp(io.Position.X - sz/2, m, math.max(m, vp.X - sz - m))
+                    local y = math.clamp(io.Position.Y - sz/2, m, math.max(m, vp.Y - sz - m))
+                    frame.Position = UDim2.new(0, x, 0, y)
+                end)
+            end
         end
     end)
     UserInputService.InputEnded:Connect(function(io)
