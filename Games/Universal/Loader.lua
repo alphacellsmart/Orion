@@ -6268,35 +6268,55 @@ function OrionLib:FloatBtn(cfg)
         local list = getShortcuts()
         local n = #list
         if n == 0 then return end
-        local R = sz/2 + 28
+
+        -- centro REAL do botao flutuante
         local ap = frame.AbsolutePosition
-        local cx, cy = ap.X + sz/2, ap.Y + sz/2
+        local cx = ap.X + sz / 2
+        local cy = ap.Y + sz / 2
+        local btnSize = 38
+        local gap = 14
+        local R = sz / 2 + btnSize / 2 + gap
+
+        -- comeca em cima e distribui em circulo completo
+        local startAng = -math.pi / 2
+        local TS = game:GetService("TweenService")
+
         for i, sc in ipairs(list) do
-            local ang = -math.pi/2 + (i-1) * (2*math.pi/n)
-            local px = cx + R * math.cos(ang) - 18
-            local py = cy + R * math.sin(ang) - 18
+            local ang = startAng + (i - 1) * (2 * math.pi / n)
+            local tx = cx + R * math.cos(ang) - btnSize / 2
+            local ty = cy + R * math.sin(ang) - btnSize / 2
+
+            -- nasce no centro e anima pra fora
             local b = Instance.new("TextButton")
-            b.Size = UDim2.fromOffset(36, 36)
-            b.Position = UDim2.fromOffset(px, py)
+            b.Size = UDim2.fromOffset(btnSize, btnSize)
+            b.Position = UDim2.fromOffset(cx - btnSize / 2, cy - btnSize / 2)
             b.BackgroundColor3 = BLACK
+            b.BackgroundTransparency = 0.15
             b.Text = ""
             b.ZIndex = 15
             b.Parent = screen
             do local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(1, 0); c.Parent = b end
-            do local s = Instance.new("UIStroke"); s.Color = GREEN; s.Thickness = 1; s.Transparency = 0.3; s.Parent = b end
+            do local s = Instance.new("UIStroke"); s.Color = GREEN; s.Thickness = 1.2; s.Transparency = 0.25; s.Parent = b end
+
             local ic = Instance.new("ImageLabel")
             ic.BackgroundTransparency = 1
             ic.Size = UDim2.fromOffset(18, 18)
-            ic.Position = UDim2.fromOffset(9, 9)
+            ic.Position = UDim2.fromOffset((btnSize - 18) / 2, (btnSize - 18) / 2)
             ic.Image = icon(sc.Icon or "home")
-            ic.ImageColor3 = Color3.fromRGB(230, 230, 235)
+            ic.ImageColor3 = Color3.fromRGB(235, 235, 240)
             ic.ZIndex = 16
             ic.Parent = b
+
+            TS:Create(b, TweenInfo.new(0.22 + i * 0.02, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                Position = UDim2.fromOffset(tx, ty),
+                BackgroundTransparency = 0,
+            }):Play()
+
             b.MouseButton1Click:Connect(function()
                 scClose()
                 if sc.Callback then pcall(sc.Callback) end
             end)
-            scButtons[#scButtons+1] = b
+            scButtons[#scButtons + 1] = b
         end
     end
 
