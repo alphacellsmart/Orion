@@ -331,7 +331,7 @@ local main = Instance.new("Frame")
 main.Name = "Card"
 main.AnchorPoint = Vector2.new(0.5, 0.5)
 main.Position = UDim2.fromScale(0.5, 0.5)
-main.Size = UDim2.fromOffset(320, 400)
+main.Size = UDim2.fromOffset(400, 300)
 main.BackgroundColor3 = CARD
 main.BorderSizePixel = 0
 main.Parent = gui
@@ -347,8 +347,8 @@ accent.Parent = main
 
 local header = Instance.new("Frame")
 header.BackgroundTransparency = 1
-header.Size = UDim2.new(1, -32, 0, 56)
-header.Position = UDim2.fromOffset(16, 14)
+header.Size = UDim2.new(1, -32, 0, 50)
+header.Position = UDim2.fromOffset(16, 12)
 header.Parent = main
 
 local logoBox = Instance.new("Frame")
@@ -404,12 +404,12 @@ end)
 
 local body = Instance.new("Frame")
 body.BackgroundTransparency = 1
-body.Position = UDim2.fromOffset(16, 86)
-body.Size = UDim2.new(1, -32, 1, -110)
+body.Position = UDim2.fromOffset(16, 72)
+body.Size = UDim2.new(1, -32, 1, -96)
 body.Parent = main
 
 local list = Instance.new("UIListLayout")
-list.Padding = UDim.new(0, 10)
+list.Padding = UDim.new(0, 8)
 list.SortOrder = Enum.SortOrder.LayoutOrder
 list.Parent = body
 
@@ -444,7 +444,7 @@ end
 local function makeActionCard(order, titleText, descText, onClick)
     local f = Instance.new("TextButton")
     f.LayoutOrder = order
-    f.Size = UDim2.new(1, 0, 0, 50)
+    f.Size = UDim2.new(1, 0, 0, 44)
     f.BackgroundColor3 = CARD2
     f.AutoButtonColor = false
     f.Text = ""
@@ -486,7 +486,7 @@ makeActionCard(2,
 
 local passCard = Instance.new("Frame")
 passCard.LayoutOrder = 3
-passCard.Size = UDim2.new(1, 0, 0, 112)
+passCard.Size = UDim2.new(1, 0, 0, 100)
 passCard.BackgroundColor3 = CARD2
 passCard.BorderSizePixel = 0
 passCard.Parent = body
@@ -499,8 +499,8 @@ passTitle.Position = UDim2.fromOffset(14, 12)
 passTitle.Size = UDim2.new(1, -28, 0, 18)
 
 local inputBox = Instance.new("Frame")
-inputBox.Size = UDim2.new(1, -28, 0, 36)
-inputBox.Position = UDim2.fromOffset(14, 38)
+inputBox.Size = UDim2.new(1, -28, 0, 32)
+inputBox.Position = UDim2.fromOffset(14, 34)
 inputBox.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
 inputBox.BorderSizePixel = 0
 inputBox.Parent = passCard
@@ -522,8 +522,8 @@ input.TextXAlignment = Enum.TextXAlignment.Left
 input.Parent = inputBox
 
 local confirm = Instance.new("TextButton")
-confirm.Size = UDim2.new(1, -28, 0, 34)
-confirm.Position = UDim2.fromOffset(14, 82)
+confirm.Size = UDim2.new(1, -28, 0, 30)
+confirm.Position = UDim2.fromOffset(14, 74)
 confirm.BackgroundColor3 = GREEN
 confirm.AutoButtonColor = false
 confirm.Text = T("Confirmar acesso", "Confirm access", "Confirmar acceso")
@@ -615,9 +615,9 @@ input.FocusLost:Connect(function(enter)
     if enter then tryLogin() end
 end)
 
-main.Size = UDim2.fromOffset(300, 370)
+main.Size = UDim2.fromOffset(380, 280)
 main.BackgroundTransparency = 0.25
 TweenService:Create(main, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-    Size = UDim2.fromOffset(320, 400),
+    Size = UDim2.fromOffset(400, 300),
     BackgroundTransparency = 0,
 }):Play()
