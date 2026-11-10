@@ -6042,348 +6042,324 @@ local function mdConv(t)
 end
 
 function OrionLib:FloatBtn(cfg)
+    cfg = cfg or {}
+    -- remove floats antigos do Orion
     pcall(function()
         for _, g in ipairs(game:GetService("CoreGui"):GetChildren()) do
-            if g.Name == "OrionStudios_Float" or g.Name == "WinUIFloatBtn" or (type(g.Name)=="string" and g.Name:find("Float")) then g:Destroy() end
+            if g.Name == "OrionStudios_Float" or g.Name == "OrionHub_Float" or g.Name == "WinUIFloatBtn" then
+                g:Destroy()
+            end
+        end
+        local pg = Players.LocalPlayer and Players.LocalPlayer:FindFirstChild("PlayerGui")
+        if pg then
+            for _, g in ipairs(pg:GetChildren()) do
+                if g.Name == "OrionStudios_Float" or g.Name == "OrionHub_Float" then g:Destroy() end
+            end
         end
     end)
 
-    cfg=cfg or {}
-    local screen=Instance.new("ScreenGui"); screen.Name="OrionStudios_Float"; OrionLib.Protect(screen); screen.ResetOnSpawn=false; screen.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; pcall(function() screen.DisplayOrder=2147483647; screen.IgnoreGuiInset=true end)
-    pcall(function() if syn and syn.protect_gui then syn.protect_gui(screen) end; screen.Parent=(gethui and gethui()) or CoreGui end)
-    if not screen.Parent then pcall(function() screen.Parent=Players.LocalPlayer:WaitForChild("PlayerGui") end) end
-    local destroyedByUser=false
-    task.spawn(function()
-        while not destroyedByUser do
-            task.wait(0.5)
-            pcall(function()
-                if not screen.Enabled then screen.Enabled=true end
-                if screen.DisplayOrder~=2147483647 then screen.DisplayOrder=2147483647 end
-                local want=(gethui and gethui()) or CoreGui
-                if screen.Parent==nil or (screen.Parent~=want and screen.Parent~=Players.LocalPlayer:FindFirstChild("PlayerGui")) then
-                    local ok=pcall(function() screen.Parent=want end)
-                    if not ok or not screen.Parent then pcall(function() screen.Parent=Players.LocalPlayer:WaitForChild("PlayerGui",3) end) end
-                end
-            end)
-        end
+    local screen = Instance.new("ScreenGui")
+    screen.Name = "OrionHub_Float"
+    screen.ResetOnSpawn = false
+    screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screen.IgnoreGuiInset = true
+    screen.DisplayOrder = 2147483646
+    pcall(function() OrionLib.Protect(screen) end)
+    pcall(function()
+        if syn and syn.protect_gui then syn.protect_gui(screen) end
     end)
-    local main=cfg.MainHolder
-    local sz=tonumber(cfg.Size) or 52
-    local frame=Instance.new("Frame"); frame.Name="FloatButton"; frame.Size=UDim2.new(0,sz,0,sz); frame.Position=UDim2.new(0,18,.5,-sz/2)
-    pcall(function() -- nasce encostado na lateral da interface
+    local parentOk = pcall(function()
+        screen.Parent = (gethui and gethui()) or CoreGui
+    end)
+    if not screen.Parent then
+        pcall(function() screen.Parent = Players.LocalPlayer:WaitForChild("PlayerGui") end)
+    end
+
+    local main = cfg.MainHolder
+    local sz = tonumber(cfg.Size) or 52
+    local GREEN = Color3.fromRGB(16, 185, 129)
+    local BLACK = Color3.fromRGB(12, 12, 14)
+
+    local frame = Instance.new("Frame")
+    frame.Name = "FloatButton"
+    frame.Size = UDim2.fromOffset(sz, sz)
+    frame.Position = UDim2.new(0, 16, 0.5, -sz/2)
+    frame.BackgroundColor3 = BLACK
+    frame.BackgroundTransparency = 0
+    frame.BorderSizePixel = 0
+    frame.ZIndex = 10
+    frame.Parent = screen
+    do local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 14); c.Parent = frame end
+    do local s = Instance.new("UIStroke"); s.Color = GREEN; s.Thickness = 1.6; s.Transparency = 0.1; s.Parent = frame end
+
+    -- posiciona ao lado da janela se existir
+    pcall(function()
         if main and main.Parent and main.AbsoluteSize.X > 0 then
             local inset = game:GetService("GuiService"):GetGuiInset()
-            local x = math.max(8, main.AbsolutePosition.X - sz - 10)
-            frame.Position = UDim2.new(0, x, 0, main.AbsolutePosition.Y + inset.Y + main.AbsoluteSize.Y / 2 - sz / 2)
+            local x = math.max(8, main.AbsolutePosition.X - sz - 12)
+            local y = main.AbsolutePosition.Y + inset.Y + main.AbsoluteSize.Y/2 - sz/2
+            frame.Position = UDim2.fromOffset(x, math.clamp(y, 8, 600))
         end
     end)
-    frame.BackgroundColor3=Color3.fromRGB(10,10,12); frame.BorderSizePixel=0; frame.Parent=screen; corner(frame,13); stroke(frame,Color3.fromRGB(16,185,129),.2,1.4)
-    local image=Instance.new("ImageLabel"); image.Name="Logo"; image.Size=UDim2.new(1,-6,1,-6); image.Position=UDim2.new(0,3,0,3); image.BackgroundTransparency=1; image.ScaleType=Enum.ScaleType.Fit; image.ZIndex=6; image.Parent=frame
-    -- fallback sempre visivel (nao fica tracinho vazio)
-    local fallback = Instance.new("TextLabel"); fallback.Name="FallbackLogo"; fallback.BackgroundTransparency=1; fallback.Size=UDim2.fromScale(1,1); fallback.Text="O"; fallback.Font=Enum.Font.GothamBold; fallback.TextSize=math.floor((tonumber(cfg.Size) or 52)*0.42); fallback.TextColor3=Color3.fromRGB(16,185,129); fallback.ZIndex=5; fallback.Parent=frame
+
+    -- fallback texto O (sempre visivel)
+    local fallback = Instance.new("TextLabel")
+    fallback.Name = "Fallback"
+    fallback.BackgroundTransparency = 1
+    fallback.Size = UDim2.fromScale(1, 1)
+    fallback.Text = "O"
+    fallback.Font = Enum.Font.GothamBold
+    fallback.TextSize = math.floor(sz * 0.45)
+    fallback.TextColor3 = GREEN
+    fallback.ZIndex = 11
+    fallback.Parent = frame
+
+    -- logo imagem
+    local image = Instance.new("ImageLabel")
+    image.Name = "Logo"
+    image.BackgroundTransparency = 1
+    image.Size = UDim2.new(1, -8, 1, -8)
+    image.Position = UDim2.fromOffset(4, 4)
+    image.ScaleType = Enum.ScaleType.Fit
+    image.ZIndex = 12
+    image.Parent = frame
+
     task.spawn(function()
         local url = "https://raw.githubusercontent.com/alphacellsmart/Orion/main/assets/orion-logo.png"
         local asset = nil
         local ok, bytes = pcall(function() return game:HttpGet(url, true) end)
-        if ok and type(bytes)=="string" and #bytes>500 and writefile then
+        if ok and type(bytes) == "string" and #bytes > 500 then
             pcall(function()
-                if isfolder and not isfolder("Orion_Hub") and makefolder then makefolder("Orion_Hub") end
-                writefile("Orion_Hub/orion-logo.png", bytes)
+                if isfolder and makefolder and not isfolder("Orion_Hub") then makefolder("Orion_Hub") end
+                if writefile then writefile("Orion_Hub/orion-logo.png", bytes) end
             end)
-            local assetFn = (type(getcustomasset)=="function" and getcustomasset) or (type(getsynasset)=="function" and getsynasset)
+            local assetFn = (type(getcustomasset) == "function" and getcustomasset)
+                or (type(getsynasset) == "function" and getsynasset)
             if assetFn then
-                local ok2, a = pcall(assetFn, "Orion_Hub/orion-logo.png")
-                if ok2 and type(a)=="string" and a~="" then asset = a end
+                local o2, a = pcall(assetFn, "Orion_Hub/orion-logo.png")
+                if o2 and type(a) == "string" and a ~= "" then asset = a end
             end
         end
-        if not asset then asset = url end
-        image.Image = asset
-        -- se a imagem carregou, esconde o O de fallback
-        task.delay(0.6, function()
+        image.Image = asset or url
+        task.delay(0.8, function()
             pcall(function()
-                if image.IsLoaded or (image.Image ~= "" and image.ImageTransparency < 1) then
-                    fallback.Visible = false
-                end
+                if image.Image ~= "" then fallback.Visible = false end
             end)
         end)
     end)
-    -- brilho passando no float
+
+    -- brilho
     do
-        local clip = Instance.new("Frame"); clip.BackgroundTransparency=1; clip.ClipsDescendants=true; clip.Size=UDim2.fromScale(1,1); clip.ZIndex=7; clip.Parent=frame
-        local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,13); c.Parent=clip
-        local sh=Instance.new("Frame"); sh.BackgroundColor3=Color3.fromRGB(16,185,129); sh.BackgroundTransparency=0.7; sh.BorderSizePixel=0; sh.Size=UDim2.new(0.3,0,1.5,0); sh.Position=UDim2.new(-0.5,0,-0.2,0); sh.Rotation=20; sh.ZIndex=8; sh.Parent=clip
-        local g=Instance.new("UIGradient"); g.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(0.5,0.25),NumberSequenceKeypoint.new(1,1)}); g.Parent=sh
+        local clip = Instance.new("Frame")
+        clip.BackgroundTransparency = 1
+        clip.ClipsDescendants = true
+        clip.Size = UDim2.fromScale(1, 1)
+        clip.ZIndex = 13
+        clip.Parent = frame
+        do local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 14); c.Parent = clip end
+        local sh = Instance.new("Frame")
+        sh.BackgroundColor3 = GREEN
+        sh.BackgroundTransparency = 0.72
+        sh.BorderSizePixel = 0
+        sh.Size = UDim2.new(0.28, 0, 1.5, 0)
+        sh.Rotation = 18
+        sh.ZIndex = 14
+        sh.Parent = clip
+        local g = Instance.new("UIGradient")
+        g.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 1),
+            NumberSequenceKeypoint.new(0.5, 0.2),
+            NumberSequenceKeypoint.new(1, 1),
+        })
+        g.Parent = sh
         task.spawn(function()
-            local TS=game:GetService("TweenService")
+            local TS = game:GetService("TweenService")
             while clip.Parent do
-                sh.Position=UDim2.new(-0.6,0,-0.2,0)
-                local tw=TS:Create(sh,TweenInfo.new(1.8,Enum.EasingStyle.Quad),{Position=UDim2.new(1.2,0,-0.2,0)})
-                tw:Play(); tw.Completed:Wait(); task.wait(2.2)
+                sh.Position = UDim2.new(-0.55, 0, -0.2, 0)
+                local tw = TS:Create(sh, TweenInfo.new(1.7, Enum.EasingStyle.Quad), {
+                    Position = UDim2.new(1.15, 0, -0.2, 0)
+                })
+                tw:Play()
+                tw.Completed:Wait()
+                task.wait(2.0)
             end
         end)
     end
 
-    local hit=button(frame,"FloatHit",UDim2.new(1,0,1,0),UDim2.new(),Color3.new()); hit.BackgroundTransparency=1
-    -- rosto do botao principal: fica na frente dos atalhos, que nascem/somem por tras dele
-    frame.BackgroundTransparency=1
-    local face=Instance.new("Frame"); face.Name="Face"; face.Size=UDim2.new(1,0,1,0); face.BackgroundColor3=Color3.fromRGB(10,10,12); face.BackgroundTransparency=0; face.BorderSizePixel=0; face.ZIndex=4; face.Parent=frame; corner(face,13); do local st=Instance.new("UIStroke"); st.Color=Color3.fromRGB(16,185,129); st.Thickness=1.4; st.Transparency=0.15; st.Parent=face end
-    image.ZIndex=6
-    -- efeito de "pressionado": ao passar o dedo/mouse por cima e ao tocar, o fundo do icone clareia
-    do
-        local TS = game:GetService("TweenService")
-        local hov, prs = false, false
-        local function paint()
-            local ti = TweenInfo.new(.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-            TS:Create(face, ti, {BackgroundColor3 = (prs or hov) and Color3.fromRGB(22,28,26) or Color3.fromRGB(10,10,12)}):Play()
-        end
-        hit.MouseEnter:Connect(function() hov = true; paint() end)
-        hit.MouseLeave:Connect(function() hov = false; prs = false; paint() end)
-        hit.InputBegan:Connect(function(io)
-            if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then prs = true; paint() end
-        end)
-        UserInputService.InputEnded:Connect(function(io)
-            if (io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch) and prs then
-                prs = false
-                if io.UserInputType == Enum.UserInputType.Touch then hov = false end
-                paint()
-            end
-        end)
+    local hit = Instance.new("TextButton")
+    hit.Name = "FloatHit"
+    hit.Size = UDim2.fromScale(1, 1)
+    hit.BackgroundTransparency = 1
+    hit.Text = ""
+    hit.ZIndex = 20
+    hit.Parent = frame
+
+    -- arrastar com clamp na tela
+    local dragging, dragStart, startPos = false, nil, nil
+    local function clampPos(x, y)
+        local vp = screen.AbsoluteSize
+        if vp.X < 10 then vp = workspace.CurrentCamera.ViewportSize end
+        local m = 6
+        x = math.clamp(x, m, math.max(m, vp.X - sz - m))
+        y = math.clamp(y, m, math.max(m, vp.Y - sz - m))
+        return x, y
     end
-    -- o botao de hit cobre o frame, entao o arrasto precisa ser ligado nele
-    local spawnPos = frame.Position -- posicao de nascimento (ao lado da interface)
-    local startPos, dragged = nil, false
-    local function clampFloat()
-        pcall(function()
-            local vp = screen.AbsoluteSize
-            local m = 8
-            local ap = frame.AbsolutePosition
-            local cx = math.clamp(ap.X, m, math.max(m, vp.X - sz - m))
-            local cy = math.clamp(ap.Y, m, math.max(m, vp.Y - sz - m))
-            frame.Position = UDim2.new(0, cx, 0, cy)
-        end)
-    end
-    task.spawn(function()
-        while frame.Parent do
-            clampFloat()
-            task.wait(0.2)
-        end
-    end)
+
     hit.InputBegan:Connect(function(io)
-        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then startPos=io.Position; dragged=false end
+        if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+            dragStart = io.Position
+            startPos = frame.Position
+        end
     end)
     UserInputService.InputChanged:Connect(function(io)
-        if startPos and (io.UserInputType==Enum.UserInputType.MouseMovement or io.UserInputType==Enum.UserInputType.Touch) then
-            if (io.Position-startPos).Magnitude>6 then dragged=true end
-            if dragged then
-                pcall(function()
-                    local vp = screen.AbsoluteSize
-                    local m = 8
-                    local x = math.clamp(io.Position.X - sz/2, m, math.max(m, vp.X - sz - m))
-                    local y = math.clamp(io.Position.Y - sz/2, m, math.max(m, vp.Y - sz - m))
-                    frame.Position = UDim2.new(0, x, 0, y)
-                end)
+        if dragStart and startPos and (io.UserInputType == Enum.UserInputType.MouseMovement or io.UserInputType == Enum.UserInputType.Touch) then
+            local d = io.Position - dragStart
+            if d.Magnitude > 8 then dragging = true end
+            if dragging then
+                local x = startPos.X.Offset + d.X
+                local y = startPos.Y.Offset + d.Y
+                x, y = clampPos(x, y)
+                frame.Position = UDim2.fromOffset(x, y)
             end
         end
     end)
     UserInputService.InputEnded:Connect(function(io)
-        if io.UserInputType==Enum.UserInputType.MouseButton1 or io.UserInputType==Enum.UserInputType.Touch then
-            local wasDrag = startPos ~= nil
-            local wasMoved = dragged
-            startPos=nil
-            if wasDrag then task.spawn(function()
-                task.wait(.12)
-                pcall(function()
-                    -- solto em cima da interface: volta pra posicao de spawn
-                    if main and main.Parent and main.Visible and main.AbsoluteSize.X > 0 then
-                        local sg = main:FindFirstAncestorOfClass("ScreenGui")
-                        if not sg or sg.Enabled then
-                            local inset = game:GetService("GuiService"):GetGuiInset()
-                            local ms, fp = main.AbsoluteSize, frame.AbsolutePosition
-                            local function over(dy)
-                                local mp = main.AbsolutePosition + Vector2.new(0, dy)
-                                return fp.X < mp.X + ms.X and fp.X + sz > mp.X and fp.Y < mp.Y + ms.Y and fp.Y + sz > mp.Y
-                            end
-                            if over(inset.Y) or over(0) then
-                                game:GetService("TweenService"):Create(frame, TweenInfo.new(.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = spawnPos}):Play()
-                                return
-                            end
-                        end
-                    end
-                    local vp, ap, m = screen.AbsoluteSize, frame.AbsolutePosition, 8
-                    local cx = math.clamp(ap.X, m, math.max(m, vp.X - sz - m))
-                    local cy = math.clamp(ap.Y, m, math.max(m, vp.Y - sz - m))
-                    if math.abs(cx-ap.X) > .5 or math.abs(cy-ap.Y) > .5 then
-                        local p = frame.Position
-                        game:GetService("TweenService"):Create(frame, TweenInfo.new(.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-                            {Position = UDim2.new(p.X.Scale, p.X.Offset + (cx-ap.X), p.Y.Scale, p.Y.Offset + (cy-ap.Y))}):Play()
-                    end
-                end)
-            end) end
+        if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then
+            if dragging then
+                local ap = frame.AbsolutePosition
+                local x, y = clampPos(ap.X, ap.Y)
+                frame.Position = UDim2.fromOffset(x, y)
+            end
+            dragStart, startPos = nil, nil
+            task.defer(function() dragging = false end)
         end
     end)
-    pcall(function() _G.__OrionFloatFrame = frame end)
-    draggable(hit,frame)
-    hit.ZIndex = 7
-    -- atalhos animados (so no 1o uso depois que entrou no jogo): 1o clique abre Home/Scripts, 2o clique abre a interface
+
+    -- atalhos circulares (como a base)
+    local scOpen = false
+    local scButtons = {}
     local function getShortcuts()
         if type(cfg.Shortcuts) == "function" then
             local ok, r = pcall(cfg.Shortcuts)
-            return (ok and type(r) == "table") and r or {}
+            if ok and type(r) == "table" then return r end
+        elseif type(cfg.Shortcuts) == "table" then
+            return cfg.Shortcuts
         end
-        return cfg.Shortcuts or {}
+        -- padrao
+        return {
+            { Icon = "home", Callback = function() if main then main.Visible = true end end },
+            { Icon = "scroll-text", Callback = function() if main then main.Visible = true end end },
+            { Icon = "eye", Callback = function() if main then main.Visible = true end end },
+            { Icon = "user", Callback = function() if main then main.Visible = true end end },
+            { Icon = "settings", Callback = function() if main then main.Visible = true end end },
+        }
     end
-    local scDone, scOpen, scBtns = false, false, {}
-    local function scClose(animate)
+
+    local function scClose()
         scOpen = false
-        local list = scBtns; scBtns = {}
-        for _, b in ipairs(list) do
-            if animate and b.Parent then
-                local tw = game:GetService("TweenService"):Create(b, TweenInfo.new(.22, Enum.EasingStyle.Back, Enum.EasingDirection.In),
-                    {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0, sz / 2, 0, sz / 2)})
-                tw.Completed:Connect(function() pcall(function() b:Destroy() end) end); tw:Play()
-            else pcall(function() b:Destroy() end) end
-        end
+        for _, b in ipairs(scButtons) do pcall(function() b:Destroy() end) end
+        scButtons = {}
     end
+
     local function scOpenShortcuts()
+        scClose()
         scOpen = true
-        local shortcuts = getShortcuts()
-        local ms = 34
-        -- posiciona TODOS os atalhos em aneis ao redor do botao, so em pontos visiveis na tela
-        local n = #shortcuts
-        local vp = screen.AbsoluteSize
+        local list = getShortcuts()
+        local n = #list
+        if n == 0 then return end
+        local R = sz/2 + 28
         local ap = frame.AbsolutePosition
-        local cx, cy = ap.X + sz / 2, ap.Y + sz / 2
-        local mg = ms / 2 + 4
-        local function onScreen(a, R)
-            local px, py = cx + R * math.cos(a), cy + R * math.sin(a)
-            return px >= mg and px <= vp.X - mg and py >= mg and py <= vp.Y - mg
-        end
-        -- circulo organizado: angulos iguais; raio cresce ate ninguem encostar em ninguem
-        local spots, minStep = {}, 0
-        local R = math.max(sz / 2 + ms / 2 + 12, (ms + 10) * n / (2 * math.pi))
-        for _ = 1, 10 do
-            minStep = (ms + 10) / R
-            local SAMPLES = 120
-            local valid, allOk = {}, true
-            for j = 0, SAMPLES - 1 do
-                valid[j] = onScreen(-math.pi / 2 + 2 * math.pi * j / SAMPLES, R)
-                if not valid[j] then allOk = false end
-            end
-            if allOk then
-                for k = 0, n - 1 do spots[#spots + 1] = -math.pi / 2 + 2 * math.pi * k / n end
-                break
-            end
-            -- maior arco continuo visivel (circular)
-            local bestStart, bestLen, j = 0, 0, 0
-            while j < SAMPLES do
-                if valid[j] then
-                    local len = 0
-                    while len < SAMPLES and valid[(j + len) % SAMPLES] do len = len + 1 end
-                    if len > bestLen then bestStart, bestLen = j, len end
-                    j = j + len + 1
-                else j = j + 1 end
-            end
-            local span = (bestLen - 1) * 2 * math.pi / SAMPLES
-            if bestLen > 0 and (n <= 1 or span >= (n - 1) * minStep) then
-                local a0 = -math.pi / 2 + 2 * math.pi * bestStart / SAMPLES
-                local step = (n <= 1) and 0 or span / (n - 1)
-                if n > 1 then step = math.min(step, minStep * 1.6) end
-                local used = step * (n - 1)
-                a0 = a0 + (span - used) / 2 -- centraliza no arco livre
-                for k = 0, n - 1 do spots[#spots + 1] = a0 + step * k end
-                break
-            end
-            R = R + 12
-        end
-        for k, a in ipairs(spots) do
-            spots[k] = {sz / 2 + R * math.cos(a) - ms / 2, sz / 2 + R * math.sin(a) - ms / 2}
-        end
-        for i, sc in ipairs(shortcuts) do
-            local b = Instance.new("TextButton"); b.Text = ""; b.AutoButtonColor = false; b.BorderSizePixel = 0
-            b.BackgroundColor3 = T.bg; b.AnchorPoint = Vector2.new(0, 0); b.ZIndex = 2
-            b.Size = UDim2.new(0, 0, 0, 0); b.Position = UDim2.new(0, sz / 2, 0, sz / 2); b.Parent = frame
-            corner(b, 11); stroke(b, T.silver2, .15, 1.5)
-            local im = Instance.new("ImageLabel"); im.Size = UDim2.new(0, 18, 0, 18); im.AnchorPoint = Vector2.new(.5, .5)
-            im.Position = UDim2.new(.5, 0, .5, 0); im.BackgroundTransparency = 1; im.ZIndex = 3
-            local ic = icon(sc.Icon); im.Image = (ic ~= "") and ic or ""; im.ImageColor3 = T.silver; im.Parent = b
-            scBtns[#scBtns + 1] = b
-            do -- clareia ao passar o dedo/mouse por cima e ao tocar (igual ao botao principal)
-                local hov, prs = false, false
-                local function paint()
-                    game:GetService("TweenService"):Create(b, TweenInfo.new(.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                        {BackgroundColor3 = (hov or prs) and T.panelHover or T.bg}):Play()
-                end
-                b.MouseEnter:Connect(function() hov = true; paint() end)
-                b.MouseLeave:Connect(function() hov = false; prs = false; paint() end)
-                b.InputBegan:Connect(function(io)
-                    if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then prs = true; paint() end
-                end)
-                b.InputEnded:Connect(function(io)
-                    if io.UserInputType == Enum.UserInputType.MouseButton1 or io.UserInputType == Enum.UserInputType.Touch then
-                        prs = false
-                        if io.UserInputType == Enum.UserInputType.Touch then hov = false end
-                        paint()
-                    end
-                end)
-            end
-            local sp = spots[i] or spots[1]
-            task.delay((i - 1) * .07, function()
-                if b.Parent then
-                    game:GetService("TweenService"):Create(b, TweenInfo.new(.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-                        {Size = UDim2.new(0, ms, 0, ms), Position = UDim2.new(0, sp[1], 0, sp[2])}):Play()
-                end
+        local cx, cy = ap.X + sz/2, ap.Y + sz/2
+        for i, sc in ipairs(list) do
+            local ang = -math.pi/2 + (i-1) * (2*math.pi/n)
+            local px = cx + R * math.cos(ang) - 18
+            local py = cy + R * math.sin(ang) - 18
+            local b = Instance.new("TextButton")
+            b.Size = UDim2.fromOffset(36, 36)
+            b.Position = UDim2.fromOffset(px, py)
+            b.BackgroundColor3 = BLACK
+            b.Text = ""
+            b.ZIndex = 15
+            b.Parent = screen
+            do local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(1, 0); c.Parent = b end
+            do local s = Instance.new("UIStroke"); s.Color = GREEN; s.Thickness = 1; s.Transparency = 0.3; s.Parent = b end
+            local ic = Instance.new("ImageLabel")
+            ic.BackgroundTransparency = 1
+            ic.Size = UDim2.fromOffset(18, 18)
+            ic.Position = UDim2.fromOffset(9, 9)
+            ic.Image = icon(sc.Icon or "home")
+            ic.ImageColor3 = Color3.fromRGB(230, 230, 235)
+            ic.ZIndex = 16
+            ic.Parent = b
+            b.MouseButton1Click:Connect(function()
+                scClose()
+                if sc.Callback then pcall(sc.Callback) end
             end)
-            bindTap(b, function()
-                if not scOpen then return end
-                scClose(true)
-                task.delay(.28, function() -- primeiro a animacao, depois a interface
-                    if main and main.Parent then main.Visible = true end
-                    if sc.Callback then pcall(sc.Callback) end
-                end)
-            end)
+            scButtons[#scButtons+1] = b
         end
     end
-    local homePos = frame.Position -- posicao original (encostado na lateral da interface)
-    local function avoidMain()
-        pcall(function()
-            if not (main and main.Parent and main.Visible and frame.Parent) then return end
-            local inset = Vector2.new(0, 0)
-            pcall(function() inset = game:GetService("GuiService"):GetGuiInset() end)
-            local mp = Vector2.new(main.AbsolutePosition.X, main.AbsolutePosition.Y + inset.Y)
-            local ms = main.AbsoluteSize
-            local function hits(p) return p.X < mp.X + ms.X and p.X + sz > mp.X and p.Y < mp.Y + ms.Y and p.Y + sz > mp.Y end
-            if not hits(frame.AbsolutePosition) then return end -- ja esta fora da interface
-            local vp = screen.AbsoluteSize
-            local target = homePos
-            local abs = Vector2.new(vp.X * homePos.X.Scale + homePos.X.Offset, vp.Y * homePos.Y.Scale + homePos.Y.Offset)
-            if hits(abs) then -- a posicao original tambem ficou embaixo da interface: usa a lateral dela
-                local x = math.max(8, mp.X - sz - 10)
-                target = UDim2.new(0, x, 0, math.clamp(mp.Y + ms.Y / 2 - sz / 2, 8, math.max(8, vp.Y - sz - 8)))
-            end
-            game:GetService("TweenService"):Create(frame, TweenInfo.new(.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = target}):Play()
-        end)
-    end
-    pcall(function()
-        if main then main:GetPropertyChangedSignal("Visible"):Connect(function()
-            if main.Visible then
-                if scOpen then scClose(true) end
-                task.delay(.06, avoidMain) -- se o botao ficou em cima da interface, volta pro lugar original
-            end
-        end) end
-    end)
-    bindTap(hit, function()
-        if dragged then dragged=false; return end
-        -- sempre que a interface estiver fechada, o clique abre os atalhos; clicar de novo abre a interface
-        if #getShortcuts() > 0 and main and main.Parent and (scOpen or not main.Visible) then
-            if not scOpen then scOpenShortcuts(); return end
-            scClose(true)
-            task.delay(.28, function() if main and main.Parent then main.Visible = true end end)
+
+    hit.MouseButton1Click:Connect(function()
+        if dragging then return end
+        if scOpen then
+            scClose()
+            if main and main.Parent then main.Visible = true end
             return
         end
-        if main and main.Parent then main.Visible=not main.Visible elseif cfg.Callback then pcall(cfg.Callback) end
+        if main and main.Parent and main.Visible then
+            main.Visible = false
+            return
+        end
+        -- hub fechado: abre atalhos
+        scOpenShortcuts()
     end)
-    return {Destroy=function() destroyedByUser=true; screen:Destroy() end,SetIcon=function(_,v) local iv=icon(v)~="" and icon(v) or v; if image:IsA("ImageLabel") then image.Image=iv end end,SetColor=function(_,v) local st=frame:FindFirstChildOfClass("UIStroke"); if st then st.Color=v end end}
+
+    -- se a janela abrir de novo, fecha atalhos
+    pcall(function()
+        if main then
+            main:GetPropertyChangedSignal("Visible"):Connect(function()
+                if main.Visible then scClose() end
+            end)
+        end
+    end)
+
+    -- garante que continua na tela
+    task.spawn(function()
+        while screen.Parent do
+            pcall(function()
+                if not screen.Enabled then screen.Enabled = true end
+                local ap = frame.AbsolutePosition
+                local x, y = clampPos(ap.X, ap.Y)
+                if math.abs(x - ap.X) > 2 or math.abs(y - ap.Y) > 2 then
+                    frame.Position = UDim2.fromOffset(x, y)
+                end
+            end)
+            task.wait(0.5)
+        end
+    end)
+
+    pcall(function() _G.__OrionFloatFrame = frame end)
+
+    return {
+        Destroy = function()
+            pcall(function() screen:Destroy() end)
+        end,
+        SetIcon = function(_, v)
+            if image then
+                local iv = icon(v)
+                image.Image = (iv ~= "" and iv) or tostring(v or "")
+            end
+        end,
+        SetColor = function(_, v)
+            local st = frame:FindFirstChildOfClass("UIStroke")
+            if st and v then st.Color = v end
+        end,
+        Frame = frame,
+        Screen = screen,
+    }
 end
+
 
 local notifyGui, notifyList
 function OrionLib:MakeNotify(cfg)
@@ -6659,15 +6635,32 @@ end
 do
     local ok,r=pcall(function()
         return OrionLib:FloatBtn({
-            Icon="rbxassetid://106423297301247",
-            Color=Color3.fromRGB(255,255,255),
-            ColorDark=Color3.fromRGB(35,35,35),
-            Size=46,
+            Icon="rbxassetid://7733960981",
+            Color=Color3.fromRGB(16,185,129),
+            ColorDark=Color3.fromRGB(12,12,14),
+            Size=52,
             MainHolder=Window._holder,
-            Shortcuts=function() local t={} for i,tb in ipairs(Window._tabs) do local nm=string.lower(tostring(tb.Name)); if not (nm:find("suporte",1,true) or nm:find("support",1,true) or nm:find("orion ai",1,true)) then t[#t+1]={Icon=tb.IconName,Callback=function() Window:SelectTab(i) end} end end return t end,
+            Shortcuts=function()
+                local t={}
+                for i,tb in ipairs(Window._tabs or {}) do
+                    local nm=string.lower(tostring(tb.Name))
+                    if not (nm:find("suporte",1,true) or nm:find("support",1,true) or nm:find("orion ai",1,true)) then
+                        t[#t+1]={Icon=tb.IconName or "home",Callback=function()
+                            if Window and Window.SelectTab then Window:SelectTab(i) end
+                            if Window and Window._holder then Window._holder.Visible = true end
+                        end}
+                    end
+                end
+                return t
+            end,
         })
     end)
-    if ok and r then pcall(function() Window:RegisterFloat(r) end) end
+    if ok and r then
+        pcall(function() Window:RegisterFloat(r) end)
+        pcall(function() _G.__OrionFloat = r end)
+    else
+        warn("[Orion Hub] FloatBtn falhou:", r)
+    end
 end
 -- Indice de recursos do Orion Hub (so nomes/descricoes) para o assistente de Suporte. Nunca expoe a source.
 local supportAsk
