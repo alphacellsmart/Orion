@@ -359,14 +359,27 @@ logoBox.Parent = header
 corner(logoBox, 12)
 stroke(logoBox, GREEN, 0.2, 1.4)
 
-local logoTxt = Instance.new("TextLabel")
+local logoTxt = Instance.new("ImageLabel")
 logoTxt.BackgroundTransparency = 1
 logoTxt.Size = UDim2.fromScale(1, 1)
-logoTxt.Text = "◈"
-logoTxt.TextColor3 = GREEN
-logoTxt.TextSize = 20
-logoTxt.Font = Enum.Font.GothamBold
+logoTxt.ScaleType = Enum.ScaleType.Fit
 logoTxt.Parent = logoBox
+pcall(function()
+    local url = "https://raw.githubusercontent.com/alphacellsmart/Orion/main/assets/orion-logo.png"
+    local ok, bytes = pcall(function() return game:HttpGet(url, true) end)
+    if ok and type(bytes) == "string" and #bytes > 100 and writefile then
+        pcall(function()
+            if isfolder and not isfolder("Orion_Hub") and makefolder then makefolder("Orion_Hub") end
+            writefile("Orion_Hub/orion-logo.png", bytes)
+        end)
+        local assetFn = (type(getcustomasset) == "function" and getcustomasset) or (type(getsynasset) == "function" and getsynasset)
+        if assetFn then
+            local ok2, asset = pcall(assetFn, "Orion_Hub/orion-logo.png")
+            if ok2 and asset then logoTxt.Image = asset; return end
+        end
+    end
+    logoTxt.Image = url
+end)
 
 local title = makeLabel(header, "Orion Hub", 20, TEXT, Enum.Font.GothamBold)
 title.Position = UDim2.fromOffset(54, 4)
