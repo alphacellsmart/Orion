@@ -6068,7 +6068,7 @@ function OrionLib:FloatBtn(cfg)
         end
     end)
     local main=cfg.MainHolder
-    local sz=tonumber(cfg.Size) or 46
+    local sz=tonumber(cfg.Size) or 52
     local frame=Instance.new("Frame"); frame.Name="FloatButton"; frame.Size=UDim2.new(0,sz,0,sz); frame.Position=UDim2.new(0,18,.5,-sz/2)
     pcall(function() -- nasce encostado na lateral da interface
         if main and main.Parent and main.AbsoluteSize.X > 0 then
@@ -6078,20 +6078,34 @@ function OrionLib:FloatBtn(cfg)
         end
     end)
     frame.BackgroundColor3=Color3.fromRGB(10,10,12); frame.BorderSizePixel=0; frame.Parent=screen; corner(frame,13); stroke(frame,Color3.fromRGB(16,185,129),.2,1.4)
-    local image=Instance.new("ImageLabel"); image.Name="Logo"; image.Size=UDim2.new(1,-8,1,-8); image.Position=UDim2.new(0,4,0,4); image.BackgroundTransparency=1; image.ScaleType=Enum.ScaleType.Fit; image.ZIndex=6; image.Parent=frame
-    pcall(function()
+    local image=Instance.new("ImageLabel"); image.Name="Logo"; image.Size=UDim2.new(1,-6,1,-6); image.Position=UDim2.new(0,3,0,3); image.BackgroundTransparency=1; image.ScaleType=Enum.ScaleType.Fit; image.ZIndex=6; image.Parent=frame
+    -- fallback sempre visivel (nao fica tracinho vazio)
+    local fallback = Instance.new("TextLabel"); fallback.Name="FallbackLogo"; fallback.BackgroundTransparency=1; fallback.Size=UDim2.fromScale(1,1); fallback.Text="O"; fallback.Font=Enum.Font.GothamBold; fallback.TextSize=math.floor((tonumber(cfg.Size) or 52)*0.42); fallback.TextColor3=Color3.fromRGB(16,185,129); fallback.ZIndex=5; fallback.Parent=frame
+    task.spawn(function()
         local url = "https://raw.githubusercontent.com/alphacellsmart/Orion/main/assets/orion-logo.png"
+        local asset = nil
         local ok, bytes = pcall(function() return game:HttpGet(url, true) end)
-        if ok and type(bytes)=="string" and #bytes>100 and writefile then
-            pcall(function() if isfolder and not isfolder("Orion_Hub") and makefolder then makefolder("Orion_Hub") end end)
-            pcall(function() writefile("Orion_Hub/orion-logo.png", bytes) end)
+        if ok and type(bytes)=="string" and #bytes>500 and writefile then
+            pcall(function()
+                if isfolder and not isfolder("Orion_Hub") and makefolder then makefolder("Orion_Hub") end
+                writefile("Orion_Hub/orion-logo.png", bytes)
+            end)
             local assetFn = (type(getcustomasset)=="function" and getcustomasset) or (type(getsynasset)=="function" and getsynasset)
             if assetFn then
-                local ok2, asset = pcall(assetFn, "Orion_Hub/orion-logo.png")
-                if ok2 and asset then image.Image = asset; return end
+                local ok2, a = pcall(assetFn, "Orion_Hub/orion-logo.png")
+                if ok2 and type(a)=="string" and a~="" then asset = a end
             end
         end
-        image.Image = url
+        if not asset then asset = url end
+        image.Image = asset
+        -- se a imagem carregou, esconde o O de fallback
+        task.delay(0.6, function()
+            pcall(function()
+                if image.IsLoaded or (image.Image ~= "" and image.ImageTransparency < 1) then
+                    fallback.Visible = false
+                end
+            end)
+        end)
     end)
     -- brilho passando no float
     do
@@ -6108,10 +6122,11 @@ function OrionLib:FloatBtn(cfg)
             end
         end)
     end
+
     local hit=button(frame,"FloatHit",UDim2.new(1,0,1,0),UDim2.new(),Color3.new()); hit.BackgroundTransparency=1
     -- rosto do botao principal: fica na frente dos atalhos, que nascem/somem por tras dele
     frame.BackgroundTransparency=1
-    local face=Instance.new("Frame"); face.Name="Face"; face.Size=UDim2.new(1,0,1,0); face.BackgroundColor3=Color3.fromRGB(10,10,12); face.BorderSizePixel=0; face.ZIndex=4; face.Parent=frame; corner(face,13); do local st=Instance.new("UIStroke"); st.Color=Color3.fromRGB(16,185,129); st.Thickness=1.4; st.Transparency=0.15; st.Parent=face end
+    local face=Instance.new("Frame"); face.Name="Face"; face.Size=UDim2.new(1,0,1,0); face.BackgroundColor3=Color3.fromRGB(10,10,12); face.BackgroundTransparency=0; face.BorderSizePixel=0; face.ZIndex=4; face.Parent=frame; corner(face,13); do local st=Instance.new("UIStroke"); st.Color=Color3.fromRGB(16,185,129); st.Thickness=1.4; st.Transparency=0.15; st.Parent=face end
     image.ZIndex=6
     -- efeito de "pressionado": ao passar o dedo/mouse por cima e ao tocar, o fundo do icone clareia
     do
@@ -6367,7 +6382,7 @@ function OrionLib:FloatBtn(cfg)
         end
         if main and main.Parent then main.Visible=not main.Visible elseif cfg.Callback then pcall(cfg.Callback) end
     end)
-    return {Destroy=function() destroyedByUser=true; screen:Destroy() end,SetIcon=function(_,v) image.Image=icon(v)~="" and icon(v) or v end,SetColor=function(_,v) local st=frame:FindFirstChildOfClass("UIStroke"); if st then st.Color=v end end}
+    return {Destroy=function() destroyedByUser=true; screen:Destroy() end,SetIcon=function(_,v) local iv=icon(v)~="" and icon(v) or v; if image:IsA("ImageLabel") then image.Image=iv end end,SetColor=function(_,v) local st=frame:FindFirstChildOfClass("UIStroke"); if st then st.Color=v end end}
 end
 
 local notifyGui, notifyList
