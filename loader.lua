@@ -331,7 +331,7 @@ local main = Instance.new("Frame")
 main.Name = "Card"
 main.AnchorPoint = Vector2.new(0.5, 0.5)
 main.Position = UDim2.fromScale(0.5, 0.5)
-main.Size = UDim2.fromOffset(380, 470)
+main.Size = UDim2.fromOffset(320, 400)
 main.BackgroundColor3 = CARD
 main.BorderSizePixel = 0
 main.Parent = gui
@@ -347,12 +347,12 @@ accent.Parent = main
 
 local header = Instance.new("Frame")
 header.BackgroundTransparency = 1
-header.Size = UDim2.new(1, -40, 0, 64)
-header.Position = UDim2.fromOffset(20, 18)
+header.Size = UDim2.new(1, -32, 0, 56)
+header.Position = UDim2.fromOffset(16, 14)
 header.Parent = main
 
 local logoBox = Instance.new("Frame")
-logoBox.Size = UDim2.fromOffset(42, 42)
+logoBox.Size = UDim2.fromOffset(36, 36)
 logoBox.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
 logoBox.BorderSizePixel = 0
 logoBox.Parent = header
@@ -404,8 +404,8 @@ end)
 
 local body = Instance.new("Frame")
 body.BackgroundTransparency = 1
-body.Position = UDim2.fromOffset(20, 94)
-body.Size = UDim2.new(1, -40, 1, -120)
+body.Position = UDim2.fromOffset(16, 86)
+body.Size = UDim2.new(1, -32, 1, -110)
 body.Parent = main
 
 local list = Instance.new("UIListLayout")
@@ -444,7 +444,7 @@ end
 local function makeActionCard(order, titleText, descText, onClick)
     local f = Instance.new("TextButton")
     f.LayoutOrder = order
-    f.Size = UDim2.new(1, 0, 0, 58)
+    f.Size = UDim2.new(1, 0, 0, 50)
     f.BackgroundColor3 = CARD2
     f.AutoButtonColor = false
     f.Text = ""
@@ -486,7 +486,7 @@ makeActionCard(2,
 
 local passCard = Instance.new("Frame")
 passCard.LayoutOrder = 3
-passCard.Size = UDim2.new(1, 0, 0, 124)
+passCard.Size = UDim2.new(1, 0, 0, 112)
 passCard.BackgroundColor3 = CARD2
 passCard.BorderSizePixel = 0
 passCard.Parent = body
@@ -615,9 +615,9 @@ input.FocusLost:Connect(function(enter)
     if enter then tryLogin() end
 end)
 
-main.Size = UDim2.fromOffset(350, 440)
+main.Size = UDim2.fromOffset(300, 370)
 main.BackgroundTransparency = 0.25
-TweenService:Create(main, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-    Size = UDim2.fromOffset(380, 470),
+TweenService:Create(main, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+    Size = UDim2.fromOffset(320, 400),
     BackgroundTransparency = 0,
 }):Play()
