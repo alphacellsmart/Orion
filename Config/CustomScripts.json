@@ -1,0 +1,14 @@
+{
+  "scripts": [
+    {
+      "name": "Exemplo Orion (apague depois)",
+      "description": "Script de exemplo do admin. Substitua pelo seu.",
+      "loadstring": "print('[Orion] Script custom de exemplo')",
+      "url": "",
+      "image": "",
+      "placeId": 0,
+      "universal": true,
+      "keySystem": false
+    }
+  ]
+}
