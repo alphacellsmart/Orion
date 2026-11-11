@@ -5,64 +5,307 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Orion Hub — Admin</title>
 <style>
-  :root { --bg:#0a0a0c; --card:#141418; --green:#10b981; --text:#e7e7ea; --muted:#9a9aa3; }
-  * { box-sizing: border-box; }
-  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--text); min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
-  .card { width:100%; max-width:420px; background:var(--card); border:1px solid #222; border-radius:16px; padding:28px; }
-  h1 { margin:0 0 8px; font-size:1.35rem; color:var(--green); }
-  p { color:var(--muted); font-size:.9rem; line-height:1.45; }
-  label { display:block; margin:16px 0 6px; font-size:.8rem; color:var(--muted); }
-  input { width:100%; padding:12px 14px; border-radius:10px; border:1px solid #2a2a30; background:#0e0e12; color:var(--text); font-size:1rem; }
-  button { margin-top:16px; width:100%; padding:12px; border:0; border-radius:10px; background:var(--green); color:#042f1e; font-weight:700; cursor:pointer; }
-  button:hover { filter:brightness(1.08); }
-  .panel { display:none; margin-top:20px; }
-  .panel.show { display:block; }
-  .row { background:#0e0e12; border-radius:10px; padding:12px; margin:8px 0; font-size:.85rem; word-break:break-all; }
-  .ok { color:var(--green); font-size:.85rem; margin-top:10px; }
-  .err { color:#f87171; font-size:.85rem; margin-top:10px; }
+  :root {
+    --bg: #0a0a0c;
+    --card: #121216;
+    --card2: #1a1a22;
+    --green: #10b981;
+    --green2: #34d399;
+    --text: #e8e8ee;
+    --muted: #8b8b9a;
+    --stroke: #2a2a35;
+    --danger: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 28px 16px 60px; }
+  h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--stroke);
+    border-radius: 16px;
+    padding: 20px;
+    margin-top: 18px;
+  }
+  .card h2 { font-size: 15px; margin-bottom: 14px; color: var(--green2); }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 6px; }
+  input, textarea, select {
+    width: 100%;
+    background: var(--card2);
+    border: 1px solid var(--stroke);
+    border-radius: 10px;
+    color: var(--text);
+    padding: 11px 12px;
+    font-size: 14px;
+    outline: none;
+  }
+  input:focus, textarea:focus { border-color: var(--green); }
+  textarea { min-height: 90px; resize: vertical; font-family: ui-monospace, monospace; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 8px; border: none; border-radius: 10px; padding: 11px 16px;
+    font-weight: 600; font-size: 13px; cursor: pointer; margin-top: 12px; margin-right: 8px;
+  }
+  .btn-green { background: var(--green); color: #06281c; }
+  .btn-green:hover { background: var(--green2); }
+  .btn-ghost { background: var(--card2); color: var(--text); border: 1px solid var(--stroke); }
+  .btn-danger { background: #3a1212; color: #fecaca; border: 1px solid #5a1d1d; }
+  .lock {
+    max-width: 380px; margin: 12vh auto; text-align: center;
+  }
+  .lock .logo {
+    width: 56px; height: 56px; border-radius: 14px; margin: 0 auto 14px;
+    background: #0d0d10; border: 1px solid var(--green);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--green); font-size: 22px; font-weight: 800;
+  }
+  .hidden { display: none !important; }
+  .list { display: flex; flex-direction: column; gap: 10px; }
+  .item {
+    display: grid; grid-template-columns: 64px 1fr auto; gap: 12px; align-items: center;
+    background: var(--card2); border: 1px solid var(--stroke); border-radius: 12px; padding: 10px;
+  }
+  .item img {
+    width: 64px; height: 64px; border-radius: 10px; object-fit: cover; background: #000;
+  }
+  .item .meta { min-width: 0; }
+  .item .meta b { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item .meta span { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: #14141a; border: 1px solid var(--green); color: var(--text);
+    padding: 10px 16px; border-radius: 10px; font-size: 13px; opacity: 0;
+    pointer-events: none; transition: opacity .2s; z-index: 50;
+  }
+  .toast.show { opacity: 1; }
+  .pill {
+    display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px;
+    background: rgba(16,185,129,.15); color: var(--green2); margin-top: 4px;
+  }
+  pre {
+    background: #0d0d12; border: 1px solid var(--stroke); border-radius: 12px;
+    padding: 12px; font-size: 11px; overflow: auto; max-height: 220px; color: #c8c8d0;
+  }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Orion Hub Admin</h1>
-    <p>Painel separado do executor. Digite a senha master para ver as keys.</p>
-    <label>Senha Master</label>
-    <input id="master" type="password" placeholder="Senha master" />
-    <button id="btn">Entrar</button>
-    <div id="msg"></div>
-    <div class="panel" id="panel">
-      <div class="row"><strong>Premium</strong><br><code id="prem"></code></div>
-      <div class="row"><strong>Master</strong><br><code id="mast"></code></div>
-      <div class="row"><strong>Free (12h)</strong><br><code id="free"></code></div>
-      <p class="ok">Premium = permanente · Free = 12 horas · Master = pede sempre no hub</p>
-      <p style="color:var(--muted);font-size:.8rem">Para alterar keys, edite <code>Config/Head.lua</code> no GitHub.</p>
+  <div id="lock" class="wrap lock">
+    <div class="logo">O</div>
+    <h1>Orion Admin</h1>
+    <p class="sub">Painel externo — scripts custom</p>
+    <div class="card" style="text-align:left">
+      <label>Senha Master</label>
+      <input id="masterIn" type="password" placeholder="ORION-MASTER-..." />
+      <button class="btn btn-green" style="width:100%" onclick="unlock()">Entrar</button>
     </div>
   </div>
-  <script>
-    const MASTER = "ORION-MASTER-BARAO-2026";
-    const PREMIUM = "ORION-PREMIUM-BARAO-PERM";
-    const FREE = [
-      "KEY-ALFA-7X-2-B-Z9M4Q",
-      "KEY-BETA-3Y-5-C-X7K2V",
-      "KEY-GAMA-9Z-8-D-L3P5W",
-      "KEY-DELTA-4W-1-E-M8R7T",
-      "KEY-OMEGA-6V-3-F-N2S9Y"
-    ];
-    document.getElementById("btn").onclick = () => {
-      const v = document.getElementById("master").value.trim();
-      const msg = document.getElementById("msg");
-      const panel = document.getElementById("panel");
-      if (v === MASTER) {
-        msg.innerHTML = '<div class="ok">Admin liberado.</div>';
-        panel.classList.add("show");
-        document.getElementById("prem").textContent = PREMIUM;
-        document.getElementById("mast").textContent = MASTER;
-        document.getElementById("free").textContent = FREE.join("\n");
-      } else {
-        msg.innerHTML = '<div class="err">Senha master incorreta.</div>';
-        panel.classList.remove("show");
-      }
-    };
-  </script>
+
+  <div id="app" class="wrap hidden">
+    <div class="topbar">
+      <div>
+        <h1>Orion Admin</h1>
+        <p class="sub">Cadastro de scripts custom (CustomScripts.json)</p>
+      </div>
+      <button class="btn btn-ghost" onclick="lockAgain()">Sair</button>
+    </div>
+
+    <div class="card">
+      <h2>Novo script</h2>
+      <label>Nome do script</label>
+      <input id="fName" placeholder="Ex: Meu Hub VIP" />
+      <label>Descrição</label>
+      <input id="fDesc" placeholder="Breve descrição" />
+      <label>Loadstring ou URL</label>
+      <textarea id="fCode" placeholder='loadstring(game:HttpGet("https://..."))()  ou  https://raw.githubusercontent.com/...'></textarea>
+      <div class="row">
+        <div>
+          <label>Thumbnail (URL da imagem)</label>
+          <input id="fImage" placeholder="https://... (opcional)" />
+        </div>
+        <div>
+          <label>PlaceId do jogo (0 = todos)</label>
+          <input id="fPlace" placeholder="0" value="0" />
+        </div>
+      </div>
+      <button class="btn btn-green" onclick="addScript()">Adicionar à lista</button>
+      <button class="btn btn-ghost" onclick="clearForm()">Limpar campos</button>
+    </div>
+
+    <div class="card">
+      <h2>Scripts na lista (<span id="count">0</span>)</h2>
+      <div id="list" class="list"></div>
+      <div style="margin-top:14px">
+        <button class="btn btn-green" onclick="copyFull()">Copiar CustomScripts.json</button>
+        <button class="btn btn-ghost" onclick="downloadJson()">Baixar .json</button>
+        <button class="btn btn-danger" onclick="clearAll()">Limpar tudo</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Publicar no GitHub</h2>
+      <p class="sub" style="margin-bottom:10px">
+        Cole o JSON em <b>Config/CustomScripts.json</b> no repositório Orion e faça commit.
+        O hub já puxa esse arquivo automaticamente.
+      </p>
+      <pre id="preview">{}</pre>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+<script>
+const MASTER = "ORION-MASTER-BARAO-2026";
+const KEY = "orion_admin_scripts_v1";
+
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  setTimeout(() => el.classList.remove("show"), 2200);
+}
+
+function getList() {
+  try { return JSON.parse(localStorage.getItem(KEY) || '{"scripts":[]}'); }
+  catch { return { scripts: [] }; }
+}
+function setList(data) {
+  localStorage.setItem(KEY, JSON.stringify(data));
+  render();
+}
+
+function unlock() {
+  const v = (document.getElementById("masterIn").value || "").trim();
+  if (v !== MASTER) { toast("Senha master incorreta"); return; }
+  sessionStorage.setItem("orion_admin_ok", "1");
+  document.getElementById("lock").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  render();
+}
+function lockAgain() {
+  sessionStorage.removeItem("orion_admin_ok");
+  document.getElementById("app").classList.add("hidden");
+  document.getElementById("lock").classList.remove("hidden");
+  document.getElementById("masterIn").value = "";
+}
+
+function clearForm() {
+  ["fName","fDesc","fCode","fImage"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("fPlace").value = "0";
+}
+
+function addScript() {
+  const name = (document.getElementById("fName").value || "").trim();
+  const desc = (document.getElementById("fDesc").value || "").trim();
+  let code = (document.getElementById("fCode").value || "").trim();
+  let image = (document.getElementById("fImage").value || "").trim();
+  const placeId = parseInt(document.getElementById("fPlace").value || "0", 10) || 0;
+  if (!name || !code) { toast("Preencha nome e loadstring/URL"); return; }
+
+  let url = "", loadstring = code;
+  if (/^https?:\/\//i.test(code)) { url = code; loadstring = ""; }
+  if (!image && placeId > 0) {
+    image = `https://www.roblox.com/asset-thumbnail/image?assetId=${placeId}&width=768&height=432&format=png`;
+  }
+
+  const entry = {
+    name,
+    description: desc,
+    loadstring,
+    url,
+    image,
+    placeId,
+    universal: placeId === 0,
+    keySystem: false,
+    date: new Date().toLocaleDateString("pt-BR")
+  };
+
+  const data = getList();
+  data.scripts = data.scripts || [];
+  data.scripts.push(entry);
+  setList(data);
+  clearForm();
+  toast("Script adicionado à lista");
+}
+
+function removeAt(i) {
+  const data = getList();
+  data.scripts.splice(i, 1);
+  setList(data);
+  toast("Removido");
+}
+
+function render() {
+  const data = getList();
+  const scripts = data.scripts || [];
+  document.getElementById("count").textContent = scripts.length;
+  document.getElementById("preview").textContent = JSON.stringify(data, null, 2);
+
+  const list = document.getElementById("list");
+  if (!scripts.length) {
+    list.innerHTML = '<p class="sub">Nenhum script ainda.</p>';
+    return;
+  }
+  list.innerHTML = scripts.map((s, i) => {
+    const thumb = s.image || "";
+    const where = s.universal || !s.placeId ? "Todos os jogos" : ("PlaceId " + s.placeId);
+    const src = s.url || (s.loadstring ? "loadstring" : "—");
+    return `
+      <div class="item">
+        <img src="${thumb || "https://via.placeholder.com/64/111/10b981?text=O"}" alt="" onerror="this.style.opacity=.3" />
+        <div class="meta">
+          <b>${escapeHtml(s.name)}</b>
+          <span>${escapeHtml(s.description || "")}</span>
+          <span class="pill">${where}</span>
+          <span style="margin-top:4px;font-size:11px;color:#666">${escapeHtml(String(src).slice(0,60))}</span>
+        </div>
+        <button class="btn btn-danger" style="margin:0" onclick="removeAt(${i})">Apagar</button>
+      </div>`;
+  }).join("");
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function copyFull() {
+  const text = JSON.stringify(getList(), null, 2);
+  navigator.clipboard.writeText(text).then(() => toast("JSON copiado!")).catch(() => {
+    prompt("Copie o JSON:", text);
+  });
+}
+
+function downloadJson() {
+  const blob = new Blob([JSON.stringify(getList(), null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "CustomScripts.json";
+  a.click();
+  toast("Download iniciado");
+}
+
+function clearAll() {
+  if (!confirm("Apagar toda a lista local?")) return;
+  setList({ scripts: [] });
+  toast("Lista limpa");
+}
+
+if (sessionStorage.getItem("orion_admin_ok") === "1") {
+  document.getElementById("lock").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  render();
+}
+document.getElementById("masterIn").addEventListener("keydown", e => {
+  if (e.key === "Enter") unlock();
+});
+</script>
 </body>
 </html>
