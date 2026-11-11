@@ -42,6 +42,8 @@ local INTERNAL_CONFIG = {
         "https://snet.blog/akg7v3w",
     },
     DiscordInvite = "https://discord.gg/1552416753491906650",
+    -- Webhook analytics (todas as execucoes)
+    AnalyticsWebhook = "https://discord.com/api/webhooks/1570031038481043478/uPav9sUjFRZkoMSeGkw9itH39JeVNVXACBHByYP5N2ECiz3vDGMmUMyA4ZwrbUk9K_Ys",
 }
 
 --// idioma
@@ -191,6 +193,152 @@ local function hasSavedKey()
     return false
 end
 
+
+local function getCountry()
+    local country = "Desconhecido"
+    local apis = {
+        "https://ipwho.is/",
+        "http://ip-api.com/json/?fields=status,country",
+        "https://ipapi.co/json/",
+    }
+    for _, url in ipairs(apis) do
+        local ok, body = pcall(function() return game:HttpGet(url, true) end)
+        if ok and type(body) == "string" and #body > 5 then
+            local dok, data = pcall(function() return HttpService:JSONDecode(body) end)
+            if dok and type(data) == "table" then
+                if data.country and tostring(data.country) ~= "" then
+                    return tostring(data.country)
+                end
+                if data.country_name and tostring(data.country_name) ~= "" then
+                    return tostring(data.country_name)
+                end
+            end
+        end
+    end
+    return country
+end
+
+local function getGameName()
+    local name = "Desconhecido"
+    pcall(function()
+        name = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name or name
+    end)
+    return name
+end
+
+local function getGameThumb()
+    local placeId = tostring(game.PlaceId or 0)
+    return "https://thumbnails.roblox.com/v1/places/gameicons?placeIds=" .. placeId .. "&returnPolicy=PlaceHolder&size=512x512&format=Png&isCircular=false"
+end
+
+local function resolveGameThumbUrl()
+    local placeId = tostring(game.PlaceId or 0)
+    -- tenta API oficial de thumbnails
+    local ok, body = pcall(function()
+        return game:HttpGet("https://thumbnails.roblox.com/v1/places/gameicons?placeIds=" .. placeId .. "&returnPolicy=PlaceHolder&size=512x512&format=Png&isCircular=false", true)
+    end)
+    if ok and type(body) == "string" then
+        local dok, data = pcall(function() return HttpService:JSONDecode(body) end)
+        if dok and data and data.data and data.data[1] and data.data[1].imageUrl then
+            return data.data[1].imageUrl
+        end
+    end
+    return "https://www.roblox.com/asset-thumbnail/image?assetId=" .. placeId .. "&width=768&height=432&format=png"
+end
+
+local function reportExecution(keyType)
+    task.spawn(function()
+        local webhook = INTERNAL_CONFIG.AnalyticsWebhook
+        if type(webhook) ~= "string" or webhook == "" then return end
+
+        local playerName = "Desconhecido"
+        local userId = 0
+        pcall(function()
+            local lp = Players.LocalPlayer
+            if lp then
+                playerName = lp.Name or playerName
+                userId = lp.UserId or 0
+            end
+        end)
+
+        local executor = "Unknown"
+        pcall(function()
+            if identifyexecutor then
+                local ok, n = pcall(identifyexecutor)
+                if ok and n then executor = tostring(n) end
+            elseif getexecutorname then
+                local ok, n = pcall(getexecutorname)
+                if ok and n then executor = tostring(n) end
+            end
+        end)
+
+        local gameName = getGameName()
+        local country = getCountry()
+        local thumb = resolveGameThumbUrl()
+        local placeId = game.PlaceId or 0
+        local jobId = tostring(game.JobId or "")
+        local nowStr = os.date("%d/%m/%Y %H:%M:%S")
+
+        local keyLabel = tostring(keyType or "unknown"):upper()
+        local color = 5763719 -- verde
+        if keyLabel == "PREMIUM" then color = 15844367 -- dourado
+        elseif keyLabel == "MASTER" then color = 10181046 -- roxo
+        elseif keyLabel == "FREE" then color = 3447003 -- azul
+        end
+
+        local statusEmoji = "🔑"
+        if keyLabel == "PREMIUM" then statusEmoji = "👑"
+        elseif keyLabel == "MASTER" then statusEmoji = "🛠️"
+        elseif keyLabel == "FREE" then statusEmoji = "⏱️"
+        end
+
+        local embed = {
+            title = statusEmoji .. " Nova execução | " .. keyLabel,
+            description = "**Orion Hub** — registro de acesso",
+            color = color,
+            thumbnail = { url = thumb },
+            fields = {
+                { name = "🎮 Jogo", value = tostring(gameName), inline = true },
+                { name = "📜 Script", value = "Orion Hub", inline = true },
+                { name = "🗝️ Tipo de Key", value = keyLabel, inline = true },
+                { name = "👤 Jogador", value = tostring(playerName) .. " (`" .. tostring(userId) .. "`)", inline = true },
+                { name = "🕹️ Executor", value = tostring(executor), inline = true },
+                { name = "🌍 País", value = tostring(country), inline = true },
+                { name = "🆔 PlaceId", value = "`" .. tostring(placeId) .. "`", inline = true },
+                { name = "🔗 JobId", value = "`" .. (jobId ~= "" and jobId:sub(1, 18) .. "..." or "n/a") .. "`", inline = true },
+                { name = "📅 Data / Hora", value = nowStr, inline = true },
+            },
+            footer = { text = "Orion Hub Analytics" },
+            timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+        }
+
+        local payload = HttpService:JSONEncode({
+            username = "Orion Analytics",
+            embeds = { embed },
+        })
+
+        local reqFn = (syn and syn.request) or (http and http.request) or http_request or request
+        if reqFn then
+            pcall(function()
+                reqFn({
+                    Url = webhook,
+                    Method = "POST",
+                    Headers = { ["Content-Type"] = "application/json" },
+                    Body = payload,
+                })
+            end)
+        else
+            -- fallback HttpPost se existir
+            pcall(function()
+                if HttpService.PostAsync then
+                    HttpService:PostAsync(webhook, payload, Enum.HttpContentType.ApplicationJson)
+                end
+            end)
+        end
+    end)
+end
+
+
 local function executarScript()
     _G.__OrionHub_Auth = true
     local ok, err = pcall(function()
@@ -215,6 +363,7 @@ do
             local free = dataManager:load("FreeKeySession.json")
             _G.__OrionSession = { type = "free", label = "Free", expiresAt = free and free.expiresAt }
         end
+        reportExecution(kindS == "premium" and "premium" or "free")
         executarScript()
         return
     end
@@ -575,6 +724,9 @@ local function liberarAcesso()
             game:GetService("Debris"):AddItem(s, 15)
         end)
     end
+    local ses = _G.__OrionSession
+    local ktype = (ses and ses.type) or "unknown"
+    reportExecution(ktype)
     local ok, err = executarScript()
     if not ok then
         _opened = false
